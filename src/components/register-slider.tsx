@@ -123,7 +123,11 @@ export function RegisterSlider({ value, onChange, buffers }: RegisterSliderProps
               <span
                 className={`ja-tight text-[13.5px] transition-colors duration-150 ${
                   selected ? "font-medium text-sumi" : "text-sumi-soft"
-                } ${buffer.phase === "error" ? "line-through decoration-shu/60" : ""}`}
+                } ${
+                  // A struck-out stop reads as "unavailable" at a glance; on the
+                  // selected stop the panel says so in words, so it would be noise.
+                  buffer.phase === "error" && !selected ? "line-through decoration-shu" : ""
+                }`}
               >
                 {register.ja}
               </span>

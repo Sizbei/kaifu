@@ -171,11 +171,19 @@ export const MOCK_STREAM_SPEED: Record<RegisterId, number> = {
  * four registers advancing at different rates so the interleaving is real.
  * -------------------------------------------------------------------------- */
 
+/** ?fail=keigo makes one register error mid-stream, so the degraded slider
+ *  stop can be reviewed without waiting for a real model failure. */
+function failingRegister(): RegisterId | null {
+  const value = new URLSearchParams(window.location.search).get("fail");
+  return REGISTERS.some((r) => r.id === value) ? (value as RegisterId) : null;
+}
+
 export function runMockReplyStream(
   emit: (events: ReplyEvent[]) => void,
   finish: () => void,
   timersRef: { current: number[] },
 ) {
+  const doomed = failingRegister();
   const cursors = REGISTERS.map((r) => ({ id: r.id, at: 0, glossed: false }));
   const tick = 40;
   let elapsed = 0;
@@ -184,6 +192,16 @@ export function runMockReplyStream(
     elapsed += tick;
     const events: ReplyEvent[] = [];
     for (const cursor of cursors) {
+      if (cursor.id === doomed && !cursor.glossed && elapsed > 900) {
+        cursor.glossed = true;
+        events.push({
+          type: "error",
+          register: cursor.id,
+          message: "The model stopped partway through this register.",
+        });
+        continue;
+      }
+      if (cursor.id === doomed) continue;
       const full = MOCK_RENDERINGS[cursor.id].textJa;
       if (cursor.at >= full.length) {
         if (!cursor.glossed) {
