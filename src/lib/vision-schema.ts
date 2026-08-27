@@ -78,6 +78,20 @@ const AMOUNT_SCHEMA = {
 
 const nullable = (schema: unknown) => ({ anyOf: [schema, { type: "null" }] });
 
+const BOX_SCHEMA = {
+  type: "object",
+  description:
+    "bounding box of the printed line(s) this obligation was read from, normalized 0..1 of the full image, top-left origin; null if you cannot locate it",
+  properties: {
+    x: { type: "number", description: "Left edge, 0..1 of image width." },
+    y: { type: "number", description: "Top edge, 0..1 of image height." },
+    w: { type: "number", description: "Width, 0..1 of image width." },
+    h: { type: "number", description: "Height, 0..1 of image height." },
+  },
+  required: ["x", "y", "w", "h"],
+  additionalProperties: false,
+} as const;
+
 export const VISION_FORMAT: OpenAI.Responses.ResponseFormatTextJSONSchemaConfig = {
   type: "json_schema",
   name: "record_document",
@@ -125,8 +139,9 @@ export const VISION_FORMAT: OpenAI.Responses.ResponseFormatTextJSONSchemaConfig 
             },
             dueDate: nullable(DATE_SCHEMA),
             amount: nullable(AMOUNT_SCHEMA),
+            box: nullable(BOX_SCHEMA),
           },
-          required: ["action", "dueDate", "amount"],
+          required: ["action", "dueDate", "amount", "box"],
           additionalProperties: false,
         },
       },
@@ -163,4 +178,7 @@ DATES AND AMOUNTS
 For every date and every amount, give both forms. Put the surface form exactly as printed into raw — 令和8年9月5日 stays 令和8年9月5日, 3,200円 stays 3,200円 — and the normalised form (ISO date, integer yen) alongside it. Do not normalise raw. Do not correct raw. If you cannot resolve a Japanese era year to a calendar year, do not include the date rather than inventing one.
 
 OBLIGATIONS
-List only obligations the document itself states. If the document asks nothing of the reader, or you cannot read it well enough to be sure, return an empty list.`;
+List only obligations the document itself states. If the document asks nothing of the reader, or you cannot read it well enough to be sure, return an empty list.
+
+LOCATING OBLIGATIONS
+For each obligation, give box: the bounding box of the printed line or lines you read it from — the line carrying the deadline or amount, not the whole page and not the title. Coordinates are fractions of the full image (x, y = top-left corner; w, h = size), 0..1, top-left origin, measured on the image exactly as given, even if the page is rotated or creased. If you cannot locate the line, set box to null rather than guessing.`;

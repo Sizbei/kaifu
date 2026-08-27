@@ -331,6 +331,22 @@ describe("crossCheck", () => {
     expect(right[0].conflict).toBeNull();
   });
 
+  it("passes an obligation's box through untouched, flagged or not", () => {
+    const box = { x: 0.1, y: 0.5, w: 0.8, h: 0.04 };
+    const out = crossCheck(
+      vision({
+        obligations: [
+          obligation({ dueDate: DUE, amount: FEE, box }),
+          obligation({ amount: { yen: 9999, raw: "9,999円", label: "参加費" }, box }),
+        ],
+      }),
+    );
+    expect(out[0].box).toEqual(box);
+    expect(out[0].conflict).toBeNull();
+    expect(out[1].box).toEqual(box);
+    expect(out[1].conflict?.field).toBe("amount");
+  });
+
   it("clears an obligation whose date and amount are both in the document", () => {
     const out = crossCheck(
       vision({ obligations: [obligation({ dueDate: DUE, amount: FEE })] }),

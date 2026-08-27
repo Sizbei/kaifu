@@ -132,6 +132,17 @@ describe("VISION_FORMAT", () => {
     expect(JSON.stringify(VISION_FORMAT.schema)).not.toContain("conflict");
     expect(VISION_FORMAT.schema.additionalProperties).toBe(false);
   });
+
+  it("requires a nullable box on every obligation, so strict mode stays valid", () => {
+    const schema = VISION_FORMAT.schema as {
+      properties: { obligations: { items: { required: string[]; properties: { box: unknown } } } };
+    };
+    const items = schema.properties.obligations.items;
+    expect(items.required).toContain("box");
+    expect(JSON.stringify(items.properties.box)).toContain("normalized 0..1");
+    expect(JSON.stringify(items.properties.box)).toContain('"null"');
+    expect(VISION_SYSTEM_PROMPT).toContain("LOCATING OBLIGATIONS");
+  });
 });
 
 describe("analyzeDocument", () => {

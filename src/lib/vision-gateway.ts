@@ -12,6 +12,7 @@
  */
 
 import { withRateLimitRetry } from "@/lib/backoff";
+import { imageSize } from "@/lib/image-size";
 import { VisionResultSchema, type VisionResult } from "@/lib/types";
 import {
   VISION_FORMAT,
@@ -42,7 +43,7 @@ const REQUEST_TIMEOUT_MS = 50_000;
  */
 export const GATEWAY_PROMPT_ADDENDUM = `
 OUTPUT FORMAT
-Return exactly one JSON object with these keys and no others: docType, confidence, titleJa, rawText, issuer, dates, amounts, obligations. Each date is {"iso","raw","label"}; each amount is {"yen","raw","label"}; each obligation is {"action","dueDate","amount"} where dueDate/amount are a date/amount object or null. No markdown fences, no text before or after the object.
+Return exactly one JSON object with these keys and no others: docType, confidence, titleJa, rawText, issuer, dates, amounts, obligations. Each date is {"iso","raw","label"}; each amount is {"yen","raw","label"}; each obligation is {"action","dueDate","amount","box"} where dueDate/amount are a date/amount object or null, and box is {"x","y","w","h"} as fractions 0..1 of the full image (top-left origin) locating the printed line(s) the obligation was read from, or null if you cannot locate it. Never use pixel coordinates. No markdown fences, no text before or after the object.
 
 VERBATIM RULE FOR raw (critical)
 "raw" must be a character-for-character copy of the substring in rawText that the date or amount came from, including the weekday in parentheses, full-width digits, era names, and the 円/¥ symbol. Examples: "9月18日（金）" not "9月18日" and not "2026-09-18"; "令和8年9月1日" not "2026年9月1日"; "1,200円" not "1200". If the page prints only month and day, raw is only month and day. The ISO form goes in "iso" and nowhere else. An obligation's dueDate and amount must reuse the same raw strings as the matching entries in dates and amounts.
@@ -200,6 +201,43 @@ export function stripConflicts(parsed: unknown): unknown {
   };
 }
 
+/**
+ * Qwen VL models ground in whichever space they were asked for, but can
+ * answer in pixels regardless. Any coordinate above 1 means pixels: divide
+ * by the image size read from the header. A box that still does not fit
+ * the unit square, or one we cannot scale, becomes null rather than sinking
+ * the whole reading. Runs before Zod so a pixel box never fails the parse.
+ */
+export function normalizeBoxes(parsed: unknown, imageBase64: string): unknown {
+  if (!parsed || typeof parsed !== "object" || !Array.isArray((parsed as { obligations?: unknown }).obligations)) {
+    return parsed;
+  }
+  const { obligations, ...rest } = parsed as { obligations: unknown[] };
+  let size: ReturnType<typeof imageSize> | undefined;
+  return {
+    ...rest,
+    obligations: obligations.map((ob) => {
+      if (!ob || typeof ob !== "object" || !("box" in ob)) return ob;
+      const box = (ob as { box: unknown }).box;
+      if (!isNumericBox(box)) return { ...ob, box: null };
+      let { x, y, w, h } = box;
+      if ([x, y, w, h].some((v) => v > 1)) {
+        size ??= imageSize(imageBase64);
+        if (!size) return { ...ob, box: null };
+        x /= size.w; w /= size.w; y /= size.h; h /= size.h;
+      }
+      const unit = (v: number) => v >= 0 && v <= 1;
+      return unit(x) && unit(y) && unit(w) && unit(h) ? { ...ob, box: { x, y, w, h } } : { ...ob, box: null };
+    }),
+  };
+}
+
+function isNumericBox(v: unknown): v is { x: number; y: number; w: number; h: number } {
+  if (!v || typeof v !== "object") return false;
+  const b = v as Record<string, unknown>;
+  return ["x", "y", "w", "h"].every((k) => typeof b[k] === "number" && Number.isFinite(b[k]));
+}
+
 /** A printed calendar date: N月N日 (either digit width) or a 4-digit year. */
 const CALENDAR_DATE = /[0-9０-９]+\s*月\s*[0-9０-９]+\s*日|\d{4}[-/年]/;
 
@@ -218,8 +256,8 @@ export function dropRelativeDueDates(result: VisionResult): VisionResult {
   };
 }
 
-export function parseGatewayContent(content: string): VisionResult {
-  const parsed = stripConflicts(extractJsonObject(content));
+export function parseGatewayContent(content: string, imageBase64 = ""): VisionResult {
+  const parsed = normalizeBoxes(stripConflicts(extractJsonObject(content)), imageBase64);
   try {
     return dropRelativeDueDates(VisionResultSchema.parse(parsed));
   } catch (cause) {
@@ -259,7 +297,7 @@ export async function analyzeViaGateway(
         `The gateway model (${cfg.model}) returned empty content — is it multimodal?`,
       );
     }
-    return parseGatewayContent(content);
+    return parseGatewayContent(content, imageBase64);
   } finally {
     clearTimeout(timer);
   }

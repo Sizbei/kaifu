@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { crossCheck } from "@/lib/extract";
@@ -8,7 +11,13 @@ import {
   VisionResponseError,
   VisionSchemaError,
 } from "@/lib/vision";
-import { GATEWAY_PROMPT_ADDENDUM, extractJsonObject, imageMime, stripConflicts } from "@/lib/vision-gateway";
+import {
+  GATEWAY_PROMPT_ADDENDUM,
+  extractJsonObject,
+  imageMime,
+  parseGatewayContent,
+  stripConflicts,
+} from "@/lib/vision-gateway";
 
 vi.mock("openai", () => ({ default: class MockOpenAI {} }));
 
@@ -236,5 +245,48 @@ describe("helpers", () => {
   it("stripConflicts leaves non-object input alone", () => {
     expect(stripConflicts("s")).toBe("s");
     expect(stripConflicts({ obligations: "nope" })).toEqual({ obligations: "nope" });
+  });
+});
+
+describe("obligation bounding boxes", () => {
+  const BOX = { x: 0.1, y: 0.5, w: 0.8, h: 0.04 };
+
+  it("asks the gateway for a box on every obligation, and passes a unit box through", async () => {
+    fetchMock.mockResolvedValue(
+      completion(JSON.stringify({ ...WELL_FORMED, obligations: [{ ...WELL_FORMED.obligations[0], box: BOX }] })),
+    );
+    const result = await analyzeDocument(PNG_B64);
+    const schema = JSON.stringify(sentBody(0).response_format);
+    expect(schema).toContain('"box"');
+    expect(schema).toContain("normalized 0..1");
+    expect(result.obligations[0].box).toEqual(BOX);
+    expect(crossCheck(result)[0].box).toEqual(BOX);
+  });
+
+  it("leaves box unset when the model omits it (json_object fallback), still parsing", async () => {
+    fetchMock.mockResolvedValue(completion(JSON.stringify(WELL_FORMED)));
+    const result = await analyzeDocument(PNG_B64);
+    expect(result.obligations[0].box ?? null).toBeNull();
+  });
+
+  it("normalises pixel coordinates against the image header", () => {
+    const jpeg = readFileSync(path.join(__dirname, "../../public/samples/school-excursion.photo.jpg")).toString("base64");
+    const content = JSON.stringify({
+      ...WELL_FORMED,
+      obligations: [{ ...WELL_FORMED.obligations[0], box: { x: 206.4, y: 1569, w: 1032, h: 313.8 } }],
+    });
+    const box = parseGatewayContent(content, jpeg).obligations[0].box!;
+    expect(box.x).toBeCloseTo(0.1, 5);
+    expect(box.y).toBeCloseTo(0.5, 5);
+    expect(box.w).toBeCloseTo(0.5, 5);
+    expect(box.h).toBeCloseTo(0.1, 5);
+  });
+
+  it("nulls a box it cannot scale or that leaves the unit square, without failing the parse", () => {
+    const pixels = { ...WELL_FORMED.obligations[0], box: { x: 10, y: 10, w: 10, h: 10 } };
+    const negative = { ...WELL_FORMED.obligations[0], box: { x: -0.1, y: 0.2, w: 0.3, h: 0.4 } };
+    const junk = { ...WELL_FORMED.obligations[0], box: { x: "a" } };
+    const result = parseGatewayContent(JSON.stringify({ ...WELL_FORMED, obligations: [pixels, negative, junk] }), "not-an-image");
+    expect(result.obligations.map((o) => o.box)).toEqual([null, null, null]);
   });
 });

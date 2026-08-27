@@ -52,11 +52,30 @@ export type ExtractedAmount = z.infer<typeof ExtractedAmountSchema>;
  * Obligations — the "what you must do, by when" of the product.
  * ------------------------------------------------------------------ */
 
+/**
+ * Where on the photographed page something was read from, normalised to
+ * the full image (0..1, top-left origin) so the UI can overlay it at any
+ * render size. Additive: every consumer that ignores it keeps working.
+ */
+export const BoundingBoxSchema = z.object({
+  x: z.number().min(0).max(1),
+  y: z.number().min(0).max(1),
+  w: z.number().min(0).max(1),
+  h: z.number().min(0).max(1),
+});
+export type BoundingBox = z.infer<typeof BoundingBoxSchema>;
+
 export const ObligationSchema = z.object({
   /** Imperative, in the user's language. "Pay ¥3,200." */
   action: z.string(),
   dueDate: ExtractedDateSchema.nullable(),
   amount: ExtractedAmountSchema.nullable(),
+  /**
+   * The printed line(s) this obligation was read from. Null when the model
+   * could not locate it; optional (not defaulted) so every existing
+   * Obligation literal keeps compiling. Consumers read `ob.box ?? null`.
+   */
+  box: BoundingBoxSchema.nullable().optional(),
   /**
    * Set when the deterministic pass and the model disagree about this
    * obligation's date or amount. A flagged obligation is shown to the
