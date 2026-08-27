@@ -32,12 +32,13 @@ test.describe("school card (?mock=1)", () => {
     const pageValue = notice.getByText("10月10日（金）", { exact: true });
     await expect(scanValue).toBeVisible();
     await expect(pageValue).toBeVisible();
-    await expect(scanValue).toHaveCSS("text-decoration-line", "line-through");
+    // Equal weight: the UI must not pick a winner, so neither is struck through.
+    await expect(scanValue).not.toHaveCSS("text-decoration-line", "line-through");
     await expect(pageValue).not.toHaveCSS("text-decoration-line", "line-through");
 
     // The labels make it explicit which is which.
-    await expect(notice.getByText("The scan read")).toBeVisible();
-    await expect(notice.getByText("The page says")).toBeVisible();
+    await expect(notice.getByText("Model read")).toBeVisible();
+    await expect(notice.getByText("Regex found on page")).toBeVisible();
 
     // And the flagged obligation is the one that carries the notice.
     const flagged = page.getByRole("listitem").filter({ has: notice });

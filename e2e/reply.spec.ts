@@ -7,10 +7,14 @@ const STOPS = ["カジュアル", "丁寧", "敬語", "最敬語"] as const;
 /* The foregrounded Japanese: the only pre-line paragraph on the page.
    (No landmark or label wraps the output — see the report.) */
 const output = (page: Page) => page.locator("p.whitespace-pre-line");
+/* Radix slider: role="slider" (aria-valuenow, keys) lives on the thumb; the
+   four stop labels and the draggable rail sit in the instrument around it. */
 const slider = (page: Page) => page.getByRole("slider", { name: "Politeness register" });
+const instrument = (page: Page) => page.getByTestId("register-slider");
+const rail = (page: Page) => page.locator('[data-slot="slider"]');
 
 async function selectStop(page: Page, stop: (typeof STOPS)[number]): Promise<void> {
-  await slider(page).getByText(stop, { exact: true }).click();
+  await instrument(page).getByText(stop, { exact: true }).click();
 }
 
 test.use({ permissions: ["clipboard-read", "clipboard-write"] });
@@ -27,9 +31,10 @@ test.describe("reply panel (?mock=1)", () => {
     await expect(page.getByText("to My child's class teacher")).toBeVisible();
 
     const track = slider(page);
+    const stops = instrument(page);
     await expect(track).toHaveAttribute("aria-valuemin", "0");
     await expect(track).toHaveAttribute("aria-valuemax", "3");
-    for (const stop of STOPS) await expect(track.getByText(stop, { exact: true })).toBeVisible();
+    for (const stop of STOPS) await expect(stops.getByText(stop, { exact: true })).toBeVisible();
 
     const texts: string[] = [];
     const glosses: string[] = [];
@@ -45,7 +50,7 @@ test.describe("reply panel (?mock=1)", () => {
       await expect(page.getByText(expectedEyebrow[i])).toBeVisible();
       await expect(output(page)).not.toBeEmpty();
       await expect(page.getByText("Working out what changed at this level…")).toHaveCount(0);
-      await expect(track.getByText(stop, { exact: true })).not.toHaveCSS(
+      await expect(stops.getByText(stop, { exact: true })).not.toHaveCSS(
         "text-decoration-line",
         "line-through",
       );
@@ -81,7 +86,7 @@ test.describe("reply panel (?mock=1)", () => {
     await openCard(page, "mock=1");
     await writeReply(page, INTENT);
 
-    const box = await slider(page).boundingBox();
+    const box = await rail(page).boundingBox();
     if (!box) throw new Error("slider has no bounding box");
     const y = box.y + box.height / 2;
     await page.mouse.move(box.x + 4, y);
@@ -105,7 +110,7 @@ test.describe("reply panel (?mock=1)", () => {
     await openCard(page, "mock=1&fail=keigo");
     await writeReply(page, INTENT);
 
-    const track = slider(page);
+    const track = instrument(page);
     // Not selected: struck through on the slider.
     await expect(track.getByText("敬語", { exact: true })).toHaveCSS(
       "text-decoration-line",

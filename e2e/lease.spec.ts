@@ -48,7 +48,10 @@ test.describe("lease card (?mock=lease)", () => {
     const pageValue = notice.getByText("44,000円（税込）", { exact: true });
     await expect(scanValue).toBeVisible();
     await expect(pageValue).toBeVisible();
-    await expect(scanValue).toHaveCSS("text-decoration-line", "line-through");
+    await expect(scanValue).not.toHaveCSS("text-decoration-line", "line-through");
+    await expect(pageValue).not.toHaveCSS("text-decoration-line", "line-through");
+    await expect(notice.getByText("Model read")).toBeVisible();
+    await expect(notice.getByText("Regex found on page")).toBeVisible();
 
     const flagged = page.getByRole("listitem").filter({ has: notice });
     await expect(flagged).toContainText("Pay the fixed room-cleaning charge");

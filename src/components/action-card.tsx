@@ -14,7 +14,7 @@ const DOC_LABEL: Record<DocType, string> = {
 /** Confidence fell short, so obligations were withheld. Calm, not broken. */
 function SummaryOnlyNotice() {
   return (
-    <div className="rise rounded-[var(--radius-card)] border border-ai-line bg-ai-wash p-[18px]">
+    <div className="rise rounded-[var(--radius-card)] border border-ai-line bg-ai-wash p-[18px] lg:p-6">
       <p className="text-[15px] leading-[1.55] font-medium text-sumi">
         Only a summary this time.
       </p>
@@ -38,33 +38,34 @@ export function ActionCard({ card, benchmark = null }: ActionCardProps) {
   const hasFindings = card.findings.length > 0;
 
   return (
-    <div className="space-y-8">
-      <header className="rise space-y-3.5">
+    <div className="space-y-9 lg:space-y-11">
+      <header className="rise space-y-4">
         <div className="flex items-center gap-2.5">
           <span className="eyebrow">{DOC_LABEL[card.docType]}</span>
           <span aria-hidden className="h-px flex-1 bg-rule" />
         </div>
 
-        <h1 className="font-display text-[29px] leading-[1.2] tracking-[-0.015em] text-balance text-sumi">
+        <h1 className="font-display text-[30px] leading-[1.18] tracking-[-0.015em] text-balance text-sumi lg:text-[42px] lg:leading-[1.12] lg:tracking-[-0.02em]">
           {card.whatThisIs}
         </h1>
 
         {/* The original title, kept beside the decode. Seeing both is the reassurance. */}
-        <p className="ja border-l-2 border-shu/40 pl-3 text-[15px] text-sumi-soft">
-          {card.titleJa}
+        <div className="space-y-1 pt-1">
+          <p className="ja text-[15px] text-sumi-soft lg:text-[16px]">{card.titleJa}</p>
+          {card.issuer ? (
+            <p className="ja-tight text-[13px] text-sumi-faint">From {card.issuer}</p>
+          ) : null}
+        </div>
+
+        <p className="max-w-[62ch] pt-1 text-[15.5px] leading-[1.62] text-sumi-soft lg:text-[17px] lg:leading-[1.6]">
+          {card.summary}
         </p>
-
-        {card.issuer ? (
-          <p className="ja-tight text-[13px] text-sumi-faint">From {card.issuer}</p>
-        ) : null}
-
-        <p className="pt-1 text-[15.5px] leading-[1.62] text-sumi-soft">{card.summary}</p>
       </header>
 
       {card.summaryOnly ? <SummaryOnlyNotice /> : null}
 
       {hasObligations ? (
-        <section className="space-y-4">
+        <section className="space-y-4 lg:space-y-5">
           <SectionRule label={`What you have to do · ${card.obligations.length}`} />
           <ul className="space-y-3">
             {card.obligations.map((obligation, i) => (
@@ -80,9 +81,9 @@ export function ActionCard({ card, benchmark = null }: ActionCardProps) {
       ) : null}
 
       {!hasObligations && !card.summaryOnly ? (
-        <section className="space-y-4">
+        <section className="space-y-4 lg:space-y-5">
           <SectionRule label="What you have to do" />
-          <div className="rise rounded-[var(--radius-card)] border border-dashed border-rule-strong bg-raised/60 p-[18px]">
+          <div className="rise rounded-[var(--radius-card)] border border-dashed border-rule-strong bg-raised/60 p-[18px] lg:p-6">
             <p className="text-[15px] leading-[1.55] text-sumi">
               Nothing to do. This one is for information.
             </p>
@@ -95,7 +96,7 @@ export function ActionCard({ card, benchmark = null }: ActionCardProps) {
       ) : null}
 
       {hasFindings ? (
-        <section className="space-y-4">
+        <section className="space-y-4 lg:space-y-5">
           <SectionRule label={`Clauses against the guideline · ${card.findings.length}`} />
           <ul className="space-y-3">
             {card.findings.map((finding, i) => (
@@ -107,7 +108,7 @@ export function ActionCard({ card, benchmark = null }: ActionCardProps) {
               />
             ))}
           </ul>
-          <p className="text-[12.5px] leading-[1.55] text-sumi-faint">
+          <p className="max-w-[62ch] text-[12.5px] leading-[1.55] text-sumi-faint">
             These set your contract beside published government guidance and stop there. This is
             not legal advice and no view is offered on whether a clause is enforceable.
           </p>

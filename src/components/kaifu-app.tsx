@@ -105,7 +105,7 @@ export function KaifuApp() {
 
   if (state.phase === "capture") {
     return (
-      <main className="mx-auto flex w-full max-w-[520px] flex-1 flex-col">
+      <main className="relative z-1 flex w-full flex-1 flex-col">
         <CaptureScreen
           onFile={(file) => void handleFile(file)}
           error={state.error}
@@ -119,67 +119,93 @@ export function KaifuApp() {
 
   if (state.phase === "processing" || !state.card) {
     return (
-      <main className="mx-auto flex w-full max-w-[520px] flex-1 flex-col">
+      <main className="relative z-1 flex w-full flex-1 flex-col">
         <ProcessingScreen previewUrl={state.previewUrl ?? ""} onCancel={reset} />
       </main>
     );
   }
 
   return (
-    <main className="relative z-1 mx-auto w-full max-w-[520px] flex-1 px-6 pt-5 pb-[max(40px,env(safe-area-inset-bottom))]">
-      <header className="sticky top-0 z-10 -mx-6 mb-7 flex items-center justify-between gap-3 border-b border-rule bg-paper/85 px-6 py-3 backdrop-blur-md">
-        <button
-          type="button"
-          onClick={reset}
-          className="pressable -ml-2 flex min-h-11 items-center gap-1.5 pr-2 pl-2 text-[13.5px] font-medium text-sumi-soft"
-        >
-          <BackIcon className="size-[15px]" />
-          New
-        </button>
-        <Wordmark compact />
-        {state.previewUrl ? (
+    <main className="relative z-1 flex-1 pb-[max(40px,env(safe-area-inset-bottom))]">
+      <header className="sticky top-0 z-10 border-b border-rule bg-paper/85 backdrop-blur-md">
+        <div className="shell-bar px-6 py-3">
           <button
             type="button"
-            onClick={() => setPeeking((p) => !p)}
-            aria-pressed={peeking}
-            className="pressable size-9 shrink-0 overflow-hidden rounded-[6px] border border-rule-strong"
-            title="Show the photo"
+            onClick={reset}
+            className="pressable -ml-2 flex min-h-11 items-center gap-1.5 rounded-[var(--radius-pill)] pr-3 pl-2 text-[13.5px] font-medium text-sumi-soft hover:bg-sunken"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={state.previewUrl}
-              alt="Show the photo you took"
-              className="size-full object-cover"
-            />
+            <BackIcon className="size-[15px]" />
+            New
           </button>
-        ) : (
-          <span className="size-9" />
-        )}
+          <Wordmark compact />
+          {state.previewUrl ? (
+            <button
+              type="button"
+              onClick={() => setPeeking((p) => !p)}
+              aria-pressed={peeking}
+              className={`pressable size-9 shrink-0 overflow-hidden rounded-[6px] border lg:invisible ${
+                peeking ? "border-ai ring-2 ring-ai-wash" : "border-rule-strong"
+              }`}
+              title="Show the photo"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={state.previewUrl}
+                alt="Show the photo you took"
+                className="size-full object-cover"
+              />
+            </button>
+          ) : (
+            <span className="size-9" />
+          )}
+        </div>
       </header>
 
-      {peeking && state.previewUrl ? (
-        <figure className="rise card-depth mb-7 overflow-hidden rounded-[var(--radius-card)] bg-raised p-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={state.previewUrl}
-            alt="The document you photographed"
-            className="block w-full rounded-[var(--radius-inner)] object-contain"
-          />
-          <figcaption className="px-1 pt-2 pb-1 text-[12px] text-sumi-faint">
-            Held in this tab only. Leaving the page discards it.
-          </figcaption>
-        </figure>
-      ) : null}
+      <div className="shell px-6 pt-6 lg:pt-10">
+        {/* Desktop: the paper stays on the desk beside its decode. */}
+        <aside className="shell-aside pt-1">
+          {state.previewUrl ? (
+            <figure className="sheet overflow-hidden rounded-[6px] bg-raised p-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={state.previewUrl}
+                alt=""
+                className="block max-h-[calc(100vh-200px)] w-full rounded-[3px] object-contain"
+              />
+              <figcaption className="flex items-baseline justify-between px-1 pt-3 pb-1 text-[12px] text-sumi-faint">
+                <span>The page as photographed.</span>
+                <span>Held in this tab only.</span>
+              </figcaption>
+            </figure>
+          ) : null}
+        </aside>
 
-      <div className="space-y-9">
-        <ActionCard card={state.card} benchmark={state.benchmark} />
-        <ReplyPanel card={state.card} mock={mock !== null} />
+        <div className="min-w-0">
+          {peeking && state.previewUrl ? (
+            <figure className="rise card-depth mb-7 overflow-hidden rounded-[var(--radius-card)] bg-raised p-2 lg:hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={state.previewUrl}
+                alt="The document you photographed"
+                className="block w-full rounded-[var(--radius-inner)] object-contain"
+              />
+              <figcaption className="px-1 pt-2 pb-1 text-[12px] text-sumi-faint">
+                Held in this tab only. Leaving the page discards it.
+              </figcaption>
+            </figure>
+          ) : null}
+
+          <div className="space-y-10 lg:space-y-12">
+            <ActionCard card={state.card} benchmark={state.benchmark} />
+            <ReplyPanel card={state.card} mock={mock !== null} />
+          </div>
+
+          <p className="mt-10 border-t border-rule pt-5 text-[12px] leading-[1.55] text-sumi-faint">
+            KAIFŪ read this once and kept nothing. Machine translation of an official document is a
+            starting point, not a substitute for the document itself.
+          </p>
+        </div>
       </div>
-
-      <p className="mt-10 border-t border-rule pt-5 text-[12px] leading-[1.55] text-sumi-faint">
-        KAIFŪ read this once and kept nothing. Machine translation of an official document is a
-        starting point, not a substitute for the document itself.
-      </p>
     </main>
   );
 }

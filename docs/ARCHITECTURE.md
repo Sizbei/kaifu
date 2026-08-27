@@ -50,6 +50,16 @@ it, and keeping that path clean of OCR concerns keeps it tunable.
 The practical consequence: if a change would have Claude write a Japanese sentence, or
 have Shisa read pixels, the change is wrong regardless of how much simpler it looks.
 
+**The vision side of the seam is swappable.** `analyzeDocument` in `src/lib/vision.ts`
+dispatches on `VISION_PROVIDER`: `openai` (Responses API, strict structured outputs) or
+`shisa-gateway` (`src/lib/vision-gateway.ts` — Qwen multimodal models such as
+`qwen3.7-flash` served by the same OpenAI-compatible gateway as Shisa). Both return the
+same `VisionResult` and neither writes a word the user reads. Be precise about what that
+buys: the `qwen*` models on the gateway are **not** the Japan-hosted `shisa-ai/*` models,
+so the Japan-hosting guarantee in v0 applies to Japanese generation — the text path
+through `SHISA_MODEL`, which `src/lib/shisa.ts` still allowlists to `shisa-ai/*` — and not
+to the image on the vision path under either provider.
+
 ---
 
 ## 2. Data flow, end to end

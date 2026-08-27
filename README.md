@@ -190,7 +190,9 @@ All live in `.env.local` (git-ignored; `.env.example` is the committed template)
 | Variable | Required | What it is |
 | --- | --- | --- |
 | `OPENAI_API_KEY` | yes | OpenAI, used for OCR, document classification, and field extraction (Responses API, strict structured outputs) and for `text-embedding-3-small`. **Never** for Japanese generation. Get one at [platform.openai.com](https://platform.openai.com/api-keys). |
+| `VISION_PROVIDER` | no | `openai` (default when `OPENAI_API_KEY` is set) or `shisa-gateway` (default when only `SHISA_API_KEY` is set). An explicit value wins. `shisa-gateway` uses Qwen multimodal models on the Shisa gateway — not the Japan-hosted `shisa-ai/*` models. |
 | `OPENAI_VISION_MODEL` | no | Default `gpt-5.5`. Any vision-capable model on your account. |
+| `SHISA_VISION_MODEL` | no | Default `qwen3.7-flash`; `qwen3.7-plus` is ~3x slower with the same accuracy on the samples. Only used when `VISION_PROVIDER=shisa-gateway`. Must be multimodal (`glm-5.2` and `shisa-ai/*` are not). |
 | `SHISA_BASE_URL` | yes | Japan-hosted OpenAI-compatible gateway. `https://api.shisa.ai/openai/v1`. |
 | `SHISA_API_KEY` | yes | Key for that gateway. Get one at [shisa.ai](https://shisa.ai). |
 | `SHISA_MODEL` | yes | Default `shisa-ai/shisa-v2.1-llama3.3-70b`. Must start with `shisa-ai/` — see below. |

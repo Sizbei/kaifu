@@ -1,40 +1,51 @@
 "use client";
 
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
+import { Button as ShadButton } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 type Variant = "primary" | "secondary" | "quiet";
 
-const VARIANTS: Record<Variant, string> = {
-  primary:
-    "bg-ai text-on-accent border border-transparent hover:bg-[var(--ai-hover)] disabled:bg-sunken disabled:text-sumi-faint",
-  secondary:
-    "bg-raised text-sumi border border-rule-strong hover:border-sumi-faint disabled:text-sumi-faint disabled:border-rule",
-  quiet:
-    "bg-transparent text-ai border border-transparent hover:bg-[var(--ai-wash)] disabled:text-sumi-faint",
+/* KAIFŪ's three button voices on top of shadcn's Button: a pill, 48px tall,
+   pressed state under 100ms. */
+const VARIANTS: Record<Variant, { variant: "default" | "outline" | "ghost"; className: string }> = {
+  primary: {
+    variant: "default",
+    className:
+      "bg-ai text-on-accent hover:bg-[var(--ai-hover)] active:bg-[var(--ai-hover)] disabled:bg-sunken disabled:text-sumi-faint disabled:opacity-100",
+  },
+  secondary: {
+    variant: "outline",
+    className:
+      "border-rule-strong bg-raised text-sumi hover:border-sumi-faint hover:bg-raised active:bg-sunken disabled:border-rule disabled:text-sumi-faint disabled:opacity-100",
+  },
+  quiet: {
+    variant: "ghost",
+    className: "text-ai hover:bg-ai-wash hover:text-ai active:bg-ai-wash disabled:text-sumi-faint",
+  },
 };
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends Omit<ComponentProps<typeof ShadButton>, "variant" | "size"> {
   variant?: Variant;
   /** Fills the thumb zone. Primary actions on mobile should. */
   block?: boolean;
 }
 
-export function Button({
-  variant = "primary",
-  block = false,
-  className = "",
-  children,
-  ...rest
-}: ButtonProps) {
+export function Button({ variant = "primary", block = false, className, ...rest }: ButtonProps) {
+  const v = VARIANTS[variant];
   return (
-    <button
+    <ShadButton
+      variant={v.variant}
+      size="lg"
       {...rest}
-      className={`pressable inline-flex min-h-[48px] items-center justify-center gap-2.5 rounded-[var(--radius-pill)] px-6 text-[15px] font-medium tracking-[0.01em] disabled:cursor-not-allowed ${
-        VARIANTS[variant]
-      } ${block ? "w-full" : ""} ${className}`}
-    >
-      {children}
-    </button>
+      className={cn(
+        "pressable h-12 gap-2.5 rounded-[var(--radius-pill)] px-6 text-[15px] font-medium tracking-[0.01em] focus-visible:ring-0 active:translate-y-0 disabled:pointer-events-auto disabled:cursor-not-allowed [&_svg:not([class*='size-'])]:size-[17px]",
+        v.className,
+        block && "w-full",
+        className,
+      )}
+    />
   );
 }
 
@@ -48,7 +59,7 @@ export function SectionRule({ label }: { label: string }) {
     <div className="flex items-center gap-3 pt-1">
       <span aria-hidden className="h-[3px] w-[3px] rounded-full bg-shu" />
       <Eyebrow>{label}</Eyebrow>
-      <span aria-hidden className="h-px flex-1 bg-rule" />
+      <Separator className="flex-1 bg-rule data-horizontal:w-auto" />
     </div>
   );
 }

@@ -1,4 +1,8 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
 
 /* ==========================================================================
    KAIFŪ — 開封
@@ -42,6 +46,28 @@
   /* Strong custom curves. Built-ins are too weak. */
   --ease-ui: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-move: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* shadcn/ui semantic slots, mapped onto the tokens above. The library
+     renders in KAIFŪ's colours; nothing here is the default zinc. */
+  --background: var(--paper);
+  --foreground: var(--sumi);
+  --card: var(--paper-raised);
+  --card-foreground: var(--sumi);
+  --popover: var(--paper-raised);
+  --popover-foreground: var(--sumi);
+  --primary: var(--ai);
+  --primary-foreground: var(--on-accent);
+  --secondary: var(--paper-raised);
+  --secondary-foreground: var(--sumi);
+  --muted: var(--paper-sunken);
+  --muted-foreground: var(--sumi-soft);
+  --accent: var(--ai-wash);
+  --accent-foreground: var(--ai);
+  --destructive: var(--shu);
+  --border: var(--rule);
+  --input: var(--rule-strong);
+  --ring: var(--ai);
+  --radius: 10px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -92,6 +118,33 @@
   --font-display: var(--font-newsreader), var(--font-noto-jp), ui-serif, Georgia, serif;
   --font-ja: var(--font-noto-jp), "Hiragino Sans", "Hiragino Kaku Gothic ProN",
     "Yu Gothic", sans-serif;
+  --font-heading: var(--font-plex-sans), var(--font-noto-jp), ui-sans-serif, system-ui,
+    sans-serif;
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 /* --------------------------------------------------------------------------
@@ -141,7 +194,21 @@ body::before {
 :focus-visible {
   outline: 2px solid var(--ai);
   outline-offset: 2px;
-  border-radius: 4px;
+}
+
+button:focus-visible,
+a:focus-visible,
+[role="slider"]:focus-visible {
+  outline: 2px solid var(--ai);
+  outline-offset: 3px;
+}
+
+/* Form fields: a single indigo ring, never the browser's default plus ours. */
+textarea:focus-visible,
+input:focus-visible {
+  outline: none;
+  border-color: var(--ai);
+  box-shadow: 0 0 0 3px var(--ai-wash);
 }
 
 /* --------------------------------------------------------------------------
@@ -184,7 +251,7 @@ body::before {
 @keyframes kf-rise {
   from {
     opacity: 0;
-    transform: translate3d(0, 10px, 0);
+    transform: translate3d(0, 8px, 0);
   }
   to {
     opacity: 1;
@@ -226,9 +293,9 @@ body::before {
   }
 }
 
-/* Entrance: 260ms, ease-out. Used on screen changes and staggered lists. */
+/* Entrance: 220ms, ease-out. Used on screen changes and staggered lists. */
 .rise {
-  animation: kf-rise 260ms var(--ease-ui) both;
+  animation: kf-rise 220ms var(--ease-ui) both;
 }
 
 .fade {
@@ -269,6 +336,101 @@ body::before {
     0 12px 32px -18px rgb(23 21 15 / 0.28);
 }
 
+/* The document itself: a sheet lying on the desk, heavier than a card. */
+.sheet {
+  box-shadow:
+    0 0 0 1px rgb(23 21 15 / 0.05),
+    0 2px 4px rgb(23 21 15 / 0.05),
+    0 24px 48px -20px rgb(23 21 15 / 0.32),
+    0 48px 96px -40px rgb(23 21 15 / 0.24);
+}
+
+/* --------------------------------------------------------------------------
+   Shell. One column and one-handed on a phone. From 1024px the desk opens up:
+   the paper sits on the left, its decode on the right, in a 560–640px measure.
+   -------------------------------------------------------------------------- */
+
+.shell {
+  width: 100%;
+  max-width: 520px;
+  margin-inline: auto;
+}
+
+.shell-aside {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(540px, 620px);
+    column-gap: clamp(48px, 5vw, 96px);
+    align-items: start;
+    max-width: 1360px;
+    padding-inline: clamp(32px, 4vw, 64px);
+  }
+  .shell-aside {
+    display: block;
+    position: sticky;
+    top: 88px;
+    align-self: start;
+  }
+  /* Capture and processing: both columns sit on the desk's centre line. */
+  .shell-centered {
+    align-items: center;
+    min-height: calc(100vh - 120px);
+  }
+  .shell-centered .shell-aside {
+    position: static;
+  }
+}
+
+@media (min-width: 1280px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr) 620px;
+  }
+}
+
+/* The sticky top bar shares the shell's measure so its edges line up. */
+.shell-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  max-width: 520px;
+  margin-inline: auto;
+}
+@media (min-width: 1024px) {
+  .shell-bar {
+    max-width: 1360px;
+    padding-inline: clamp(32px, 4vw, 64px);
+  }
+}
+
+/* Register instrument: the moving stop and its rail. Radix positions the
+   thumb wrapper with `left`; the element is tiny and absolute, so the 180ms
+   glide is cheap. Dropped under reduced motion. */
+[data-slot="slider"] > span:has(> [data-slot="slider-thumb"]) {
+  transition: left 180ms var(--ease-move);
+}
+[data-slot="slider-range"] {
+  transition: width 180ms var(--ease-move);
+}
+.register-stop {
+  transition: box-shadow 180ms var(--ease-ui);
+}
+
+/* Streaming text: reserve the panel's height so tokens never jog the layout. */
+.register-panel {
+  min-height: 176px;
+}
+@media (min-width: 1024px) {
+  .register-panel {
+    min-height: 208px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* Fewer and gentler, not zero: colour and opacity still explain state. */
   .rise,
@@ -281,7 +443,29 @@ body::before {
   .pressable:active {
     transform: none;
   }
+  [data-slot="slider"] > span:has(> [data-slot="slider-thumb"]),
+  [data-slot="slider-range"] {
+    transition: none;
+  }
   * {
     scroll-behavior: auto !important;
+  }
+}
+
+/* Dark mode follows prefers-color-scheme through the tokens above; the
+   shadcn slots inherit it, so no .dark override is needed. */
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  button:not(:disabled), [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  html {
+    @apply font-sans;
   }
 }

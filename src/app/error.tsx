@@ -7,6 +7,7 @@
 
 import { useEffect } from "react";
 import { AlertIcon } from "@/components/icons";
+import { Button, Wordmark } from "@/components/ui";
 
 export default function ErrorBoundary({
   error,
@@ -21,21 +22,23 @@ export default function ErrorBoundary({
 
   return (
     <main className="flex flex-1 items-center justify-center p-6">
-      <div className="card-depth w-full max-w-[420px] rounded-[var(--radius-card)] bg-raised p-[22px]">
-        <div className="flex items-center gap-2 text-shu">
-          <AlertIcon className="size-4" />
-          <p className="text-[14.5px] font-medium">Something went wrong reading that.</p>
+      <div className="rise card-depth w-full max-w-[440px] rounded-[var(--radius-card)] bg-raised p-6">
+        <div className="flex items-center gap-2.5">
+          <Wordmark compact />
         </div>
-        <p className="mt-2 text-[14px] leading-[1.55] text-sumi-soft">
+        <div className="mt-5 flex items-center gap-2 text-shu">
+          <AlertIcon className="size-4" />
+          <p className="text-[13.5px] font-semibold tracking-[0.01em]">The read did not finish</p>
+        </div>
+        <p className="font-display mt-2 text-[24px] leading-[1.2] tracking-[-0.01em] text-sumi">
+          Something went wrong reading that.
+        </p>
+        <p className="mt-2 text-[14.5px] leading-[1.55] text-sumi-soft">
           Nothing was kept — try again.
         </p>
-        <button
-          type="button"
-          onClick={reset}
-          className="pressable mt-5 inline-flex min-h-11 items-center rounded-[var(--radius-pill)] bg-ai px-5 text-[14px] font-medium text-on-accent"
-        >
+        <Button onClick={reset} className="mt-6">
           Try again
-        </button>
+        </Button>
       </div>
     </main>
   );
