@@ -3,6 +3,8 @@
 Photograph a Japanese document and get back what it is, what you must do, by when, and a
 reply you can send at the politeness register the reader expects.
 
+**Live:** https://kaifu-one.vercel.app — try `/?mock=1` (school notice), `/?mock=lease` (lease clause vs MLIT guideline), or photograph a real document.
+
 [![CI](https://github.com/Sizbei/kaifu/actions/workflows/ci.yml/badge.svg)](https://github.com/Sizbei/kaifu/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Japan-hosted inference](https://img.shields.io/badge/Japanese%20generation-Japan--hosted%20(Shisa)-c0392b.svg)](https://shisa.ai)
@@ -30,6 +32,12 @@ documents for parents (sources and corrections in
 households what a document *means they must do*.
 
 ---
+
+<p align="center">
+  <img src="docs/screenshots/ui2-desktop-card.png" width="49%" alt="Desktop: the photographed page beside its decoded action card">
+  <img src="docs/screenshots/ui2-desktop-reply.png" width="49%" alt="Desktop: the register slider with the same message rendered four ways">
+</p>
+<p align="center"><sub>Desktop: the paper stays beside its decode; the reply panel shows the same message at four politeness levels.</sub></p>
 
 ## What it does
 
