@@ -60,6 +60,12 @@ describe("kanjiNumeralToInt", () => {
     expect(kanjiNumeralToInt("一万二千")).toBe(12000);
   });
 
+  it("reads daiji (formal) numerals", () => {
+    expect(kanjiNumeralToInt("弐拾万")).toBe(200000);
+    expect(kanjiNumeralToInt("参千弐百")).toBe(3200);
+    expect(yens("敷金：金弐拾万円也\n礼金：金参千弐百円")).toEqual([200000, 3200]);
+  });
+
   it("reads 億", () => {
     expect(kanjiNumeralToInt("一億二千万")).toBe(120_000_000);
   });
@@ -310,6 +316,21 @@ const DUE = { iso: "2026-09-03", raw: "9月3日(水)", label: "提出期限" };
 const FEE = { yen: 3200, raw: "3,200円", label: "参加費" };
 
 describe("crossCheck", () => {
+  it("flags the model's year on a page that prints only 月日", () => {
+    const yearless = vision({ rawText: "提出期限：9月5日（金）" });
+    const now = new Date("2026-08-27T00:00:00+09:00");
+    const wrong = crossCheck(
+      vision({ ...yearless, obligations: [obligation({ dueDate: { iso: "2025-09-05", raw: "9月5日", label: "提出期限" } })] }),
+      now,
+    );
+    expect(wrong[0].conflict).toEqual({ field: "dueDate", modelSaw: "9月5日", documentSaid: "9月5日（金）" });
+    const right = crossCheck(
+      vision({ ...yearless, obligations: [obligation({ dueDate: { iso: "2026-09-05", raw: "9月5日", label: "提出期限" } })] }),
+      now,
+    );
+    expect(right[0].conflict).toBeNull();
+  });
+
   it("clears an obligation whose date and amount are both in the document", () => {
     const out = crossCheck(
       vision({ obligations: [obligation({ dueDate: DUE, amount: FEE })] }),

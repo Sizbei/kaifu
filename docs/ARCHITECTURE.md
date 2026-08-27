@@ -230,6 +230,67 @@ rather than a line of prompt text that any future edit could dilute.
 The UI carries the same obligation: the citation is displayed with the finding, never
 folded behind a tooltip or an expander. The source being visible *is* the product.
 
+**Retrieval decides the candidate set, nothing more.** Before the model sees anything,
+the clause is embedded (OpenAI `text-embedding-3-small`, 1536-dim, vectors only) and
+searched against the corpus in Qdrant (`kaifu_groundtruth`, cosine, `pnpm
+index:groundtruth` to build). Vectors matter because leases paraphrase: 「畳の日焼け、
+壁クロスの変色」 is a 経年変化 clause with none of the curated hint keywords in it. Hits
+below `SCORE_THRESHOLD` (0.40) are discarded so an off-topic clause retrieves nothing
+rather than its nearest bad match. Two rules keep this from weakening the citation gate:
+the store returns only ids, which are resolved back through `GROUND_TRUTH` — an id the
+corpus does not know is dropped, so nothing planted in Qdrant can become a source; and
+the fallback is total — if `QDRANT_URL` or `OPENAI_API_KEY` is unset, Qdrant is
+unreachable, or nothing clears the threshold, JUDGE routes by keyword hints exactly as
+before, with one logged warning per process. A second collection, `kaifu_clauses`, holds
+the fixture lease clauses tagged by topic; `similarClauses()` over it is the seed of the
+"is this clause normal?" benchmark and is not yet wired into the UI.
+
+---
+
+## 7. The corpus graph (Neo4j)
+
+The product spec's flywheel — "each decoded document (opt-in, anonymized) enriches the
+clause-benchmark DB" — is a graph: documents → obligations → clause types → guideline
+citations, growing with volume. `src/lib/graph.ts` is the v0 seed of that, on Neo4j.
+
+```
+(:Document {id, docType, ward?, issuedMonth?, confidence})
+   -[:HAS_OBLIGATION]->  (:Obligation {kind, amountYen?, daysUntilDue?})
+   -[:CONTAINS_CLAUSE {status}]->  (:ClauseType {id})
+                                       -[:GOVERNED_BY]->  (:Guideline {source, section, url})
+```
+
+**The opt-in rule.** `/api/decode` writes to the graph only when the request body carries
+`contribute: true`. The field is read off the raw body (`DecodeRequest` is frozen); any
+other value, or its absence, means no write. The write is fire-and-forget and the card is
+never delayed or failed by it. With `NEO4J_URI` unset, or Neo4j down, every graph call is
+a logged no-op — the sidecar cannot take the decode down.
+
+**What is stored.** Only structural, categorical, and numeric facts, produced by
+`anonymize()` — the single path into the database:
+
+- `Document.id` — a random UUID (fixtures use `fixture:<id>`); `docType`; `ward` — the
+  issuing ward of a ward letter, e.g. `墨田区`, and nothing for any other type because a
+  school or company name is identifying; `issuedMonth` (`YYYY-MM`); vision `confidence`.
+- `Obligation.kind` — one of `payment | submit_form | bring_items | attend | notify`,
+  derived from the obligation and then the wording is dropped; `amountYen`;
+  `daysUntilDue` (relative, so no absolute date).
+- `CONTAINS_CLAUSE.status` — the JUDGE verdict, mapped to a ground-truth id by exact
+  citation match (a finding that does not point at the corpus is dropped, not stored).
+- `ClauseType` and `Guideline` — the six MLIT entries from `groundtruth.ts`; public text.
+
+**What is never stored.** The image, `rawText`, `titleJa`, `issuer`, `summary`,
+`whatThisIs`, any `Obligation.action`, any `raw`/`label` surface form, any `clauseJa` /
+`clausePlain` / `guidelineSays`, and absolute dates. `graph.test.ts` pushes a card full of
+sentinel PII through `recordDecode` against a mocked driver and asserts that no Cypher
+parameter contains any of it; that test is the privacy guarantee.
+
+**What it gives back.** For a `lease_clause` decode with findings, the successful
+response carries an `X-Kaifu-Benchmark` header — JSON keyed by ground-truth id, each
+`{ total, containing, differs, matches }` over the leases in the corpus. It sits in a
+header because `ActionCard` is frozen. `pnpm seed:graph` loads the 17 fixtures so the
+query has something to compare against.
+
 ---
 
 ## Test strategy

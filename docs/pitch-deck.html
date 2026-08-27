@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KAIFŪ 開封</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --washi:#f2eee6;--washi-2:#e9e4d9;--rule:#d6cfc1;
+  --sumi:#1c1a17;--sumi-2:#4a4741;--sumi-3:#7d786f;
+  --ai:#1d3f63;--ai-soft:#dfe6ee;--shu:#a83521;--shu-soft:#f3e1dc;
+  --sans:"IBM Plex Sans","Noto Sans JP",system-ui,sans-serif;
+  --jp:"Noto Sans JP","IBM Plex Sans",sans-serif;
+  --serif:"Newsreader","Noto Sans JP",Georgia,serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--sumi);color:var(--sumi);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+#stage{position:fixed;inset:0;display:grid;place-items:center;overflow:hidden}
+.slide{
+  width:1600px;height:900px;background:var(--washi);position:absolute;
+  transform-origin:center;display:none;padding:96px 112px;
+  box-shadow:0 0 0 1px rgba(0,0,0,.15);
+}
+.slide.on{display:block}
+.slide.on{animation:in .32s cubic-bezier(.2,.7,.2,1)}
+@keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.num{position:absolute;right:112px;bottom:56px;font:400 14px var(--mono);color:var(--sumi-3);letter-spacing:.06em}
+.kicker{font:500 15px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ai);margin-bottom:28px}
+h1{font:500 132px/1 var(--serif);letter-spacing:-.02em}
+h2{font:400 64px/1.12 var(--serif);letter-spacing:-.015em;max-width:1200px}
+h2 em{font-style:italic;color:var(--ai)}
+.jp{font-family:var(--jp)}
+p.lead{font:400 30px/1.4 var(--sans);color:var(--sumi-2);max-width:1120px;margin-top:36px}
+.ai{color:var(--ai)}.shu{color:var(--shu)}.dim{color:var(--sumi-3)}
+.mono{font-family:var(--mono)}
+.row{display:flex;gap:56px;align-items:flex-start}
+.col{flex:1;min-width:0}
+.rule{height:1px;background:var(--rule);margin:40px 0}
+.stat{font:500 116px/1 var(--serif);letter-spacing:-.03em;color:var(--sumi)}
+.stat small{font:400 26px/1.3 var(--sans);color:var(--sumi-2);display:block;margin-top:18px;letter-spacing:0;max-width:520px}
+.src{font:400 14px var(--mono);color:var(--sumi-3);margin-top:14px;letter-spacing:.02em}
+.card{background:#fbf9f5;border:1px solid var(--rule);border-radius:14px;padding:36px 40px;box-shadow:0 1px 0 rgba(0,0,0,.03),0 12px 32px -20px rgba(28,26,23,.25)}
+.tag{display:inline-block;font:500 13px var(--mono);letter-spacing:.1em;text-transform:uppercase;padding:6px 10px;border-radius:6px;background:var(--ai-soft);color:var(--ai)}
+.tag.shu{background:var(--shu-soft);color:var(--shu)}
+.layer{display:grid;grid-template-columns:200px 1fr;gap:28px;padding:34px 0;border-top:1px solid var(--rule);align-items:baseline}
+.layer:last-child{border-bottom:1px solid var(--rule)}
+.layer b{font:500 40px/1 var(--serif);letter-spacing:-.01em}
+.layer b span{display:block;font:400 15px var(--mono);color:var(--sumi-3);margin-top:8px;letter-spacing:.08em}
+.layer p{font:400 24px/1.45 var(--sans);color:var(--sumi-2)}
+.layer p strong{font-weight:500;color:var(--sumi)}
+/* seam diagram */
+.seam{display:grid;grid-template-columns:1fr 64px 1fr;gap:0 24px;margin-top:26px;align-items:stretch}
+.box{border:1.5px solid var(--sumi);border-radius:12px;padding:18px 24px;background:#fbf9f5;position:relative}
+.box h4{font:500 22px/1.2 var(--sans);margin-bottom:6px}
+.box p{font:400 16.5px/1.4 var(--sans);color:var(--sumi-2)}
+.box .sp{position:absolute;top:-13px;right:22px;background:var(--ai);color:#fff;font:500 12px var(--mono);letter-spacing:.14em;padding:5px 9px;border-radius:5px;text-transform:uppercase}
+.box.side{border-color:var(--rule);border-style:dashed}
+.box.side .sp{background:var(--sumi-3)}
+.seamline{position:relative}
+.seamline:before{content:"";position:absolute;left:50%;top:0;bottom:0;border-left:2px dashed var(--shu)}
+.seamline span{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-90deg);white-space:nowrap;font:500 13px var(--mono);letter-spacing:.16em;color:var(--shu);background:var(--washi);padding:0 10px}
+.arrow{font:400 16px var(--mono);color:var(--sumi-3);text-align:center;padding:4px 0}
+.stack{display:flex;flex-direction:column;gap:10px}
+/* obligation / conflict rows */
+.ob{display:grid;grid-template-columns:1fr 300px;gap:28px;padding:22px 0;border-top:1px solid var(--rule);align-items:center}
+.ob:first-child{border-top:0}
+.ob .a{font:400 24px/1.4 var(--sans)}
+.ob .d{font:400 15px var(--mono);color:var(--sumi-3);text-align:right}
+.ob .d b{display:block;font:500 22px var(--sans);color:var(--sumi);margin-bottom:4px}
+.conflict{border:1.5px solid var(--shu);background:var(--shu-soft);border-radius:10px;padding:18px 22px;margin-top:10px;grid-column:1/-1;display:grid;grid-template-columns:auto 1fr 1fr;gap:28px;align-items:center}
+.conflict .lbl{font:500 13px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--shu)}
+.conflict .v{font:400 14px var(--mono);color:var(--sumi-3)}
+.conflict .v b{display:block;font:500 24px var(--sans);color:var(--sumi);margin-top:2px}
+/* finding */
+.fq{font:400 27px/1.55 var(--jp);padding-left:22px;border-left:3px solid var(--sumi);margin:6px 0 22px}
+.gl{font:400 22px/1.5 var(--sans);color:var(--sumi-2)}
+.cite{display:flex;gap:14px;align-items:center;margin-top:22px;padding-top:18px;border-top:1px solid var(--rule);font:400 15px/1.4 var(--mono);color:var(--sumi-3)}
+.cite .tag{flex:none}
+/* register ladder */
+.ladder{display:grid;grid-template-columns:repeat(4,1fr);gap:22px;margin-top:38px}
+.rung{background:#fbf9f5;border:1px solid var(--rule);border-radius:12px;padding:24px 24px 20px;min-height:430px;display:flex;flex-direction:column}
+.rung.hot{border-color:var(--ai);box-shadow:0 0 0 3px var(--ai-soft)}
+.rung h5{font:500 30px/1 var(--jp);margin-bottom:4px}
+.rung h5 span{display:block;font:400 13px var(--mono);color:var(--sumi-3);letter-spacing:.08em;margin-top:8px;text-transform:uppercase}
+.rung .t{font:400 17px/1.7 var(--jp);color:var(--sumi);margin:18px 0;flex:1}
+.rung .g{font:italic 400 16px/1.4 var(--serif);color:var(--ai);border-top:1px solid var(--rule);padding-top:12px}
+.track{margin-top:34px;height:2px;background:var(--rule);position:relative}
+.track i{position:absolute;top:-7px;width:16px;height:16px;border-radius:50%;background:var(--washi);border:2px solid var(--sumi-3)}
+.track i.hot{background:var(--ai);border-color:var(--ai);width:20px;height:20px;top:-9px}
+/* graph */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:56px;margin-top:30px}
+.node{font:400 16px var(--mono);line-height:1.85;color:var(--sumi-2)}
+.node b{color:var(--ai);font-weight:500}
+.node .k{color:var(--sumi-3)}
+.list{font:400 24px/1.5 var(--sans);color:var(--sumi-2)}
+.list li{list-style:none;padding:12px 0;border-top:1px solid var(--rule)}
+.list li b{font-weight:500;color:var(--sumi)}
+.list li .m{font:400 14px var(--mono);color:var(--sumi-3);display:block;margin-top:4px}
+/* wordmarks */
+.marks{display:flex;flex-wrap:wrap;gap:22px 48px;margin-top:44px;align-items:baseline}
+.marks span{font:500 30px var(--sans);letter-spacing:-.01em;color:var(--sumi)}
+.marks span.p{font-weight:400;color:var(--sumi-3);font-size:24px}
+.marks small{display:block;font:400 12px var(--mono);letter-spacing:.12em;color:var(--sumi-3);text-transform:uppercase;margin-top:6px}
+#help{position:fixed;left:16px;bottom:12px;font:400 12px var(--mono);color:#8a8579;letter-spacing:.06em}
+</style>
+</head>
+<body>
+<div id="stage">
+
+<!-- 1 · title -->
+<section class="slide" data-n="1">
+  <div style="position:absolute;top:96px;left:112px" class="kicker">Tokyo · 2026-08-27</div>
+  <div style="position:absolute;left:112px;top:300px">
+    <h1>KAIFŪ <span class="jp" style="font-weight:500">開封</span></h1>
+    <p class="lead" style="font-size:34px;max-width:1240px">A Japanese document arrives. Photograph it. Get back what it is, what you must do, by when — and a reply you can send, at the politeness the reader expects.</p>
+  </div>
+  <div style="position:absolute;left:112px;bottom:56px;font:400 18px var(--sans);color:var(--sumi-2)">Raymond Chen · <span class="dim">開封 — opening a sealed envelope</span></div>
+</section>
+
+<!-- 2 · the paper -->
+<section class="slide" data-n="2" style="padding:0;overflow:hidden">
+  <img src="../public/samples/school-excursion.photo.jpg" alt="A printed school notice: 秋の遠足のお知らせ" style="position:absolute;left:0;top:0;height:900px;width:900px;object-fit:cover">
+  <div style="position:absolute;left:960px;top:96px;width:540px">
+    <div class="kicker">What comes home in a randoseru</div>
+    <h2 style="font-size:56px">This arrived on a Monday.</h2>
+    <p class="lead" style="font-size:26px;margin-top:28px">Five dates. Two amounts. Three things a parent must do, one of them by Friday. Google Lens will render every character. It will not tell you which of the five dates is the deadline.</p>
+    <p class="src" style="margin-top:34px">public/samples/school-excursion · 墨田区立菊川小学校</p>
+  </div>
+  <div class="num">2</div>
+</section>
+
+<!-- 3 · problem + numbers -->
+<section class="slide" data-n="3">
+  <div class="kicker">The problem in one sentence</div>
+  <h2>Millions of people in Japan receive paper they can read the words of and cannot <em>act on</em>.</h2>
+  <div class="row" style="margin-top:72px">
+    <div class="col">
+      <div class="stat">4.12M<small>foreign residents at end-2025. A record, first time over four million. Up 85% in ten years, 9.5% in the last year.</small></div>
+      <div class="src">出入国在留管理庁 · 令和7年末在留外国人数</div>
+    </div>
+    <div class="col">
+      <div class="stat">7,301<small>native-language support staff (母語支援員) employed by boards of education. MEXT lists “translating documents for parents” in the job.</small></div>
+      <div class="src">文部科学省 · 日本語指導が必要な児童生徒調査 令和7年度</div>
+    </div>
+  </div>
+  <div class="num">3</div>
+</section>
+
+<!-- 4 · three layers -->
+<section class="slide" data-n="4">
+  <div class="kicker">What it does</div>
+  <h2 style="margin-bottom:44px">Three layers, one photograph.</h2>
+  <div class="layer"><b>DECODE<span>free</span></b><p><strong>What is this, what must I do, by when.</strong> School notices, ward-office and tax mail, lease clauses. One tap puts the deadline in the calendar.</p></div>
+  <div class="layer"><b>JUDGE<span>paid</span></b><p><strong>The clause beside the published 国土交通省 guidance,</strong> in your language, with the section cited. Comparison and translation. Never advice.</p></div>
+  <div class="layer"><b>REPLY<span>the differentiator</span></b><p><strong>One intent, four registers</strong> — カジュアル · 丁寧 · 敬語 · 最敬語 — streamed together, each with one English line on what changed and who it suits.</p></div>
+  <div class="num">4</div>
+</section>
+
+<!-- 5 · the seam -->
+<section class="slide" data-n="5">
+  <div class="kicker">Architecture</div>
+  <h2 style="font-size:50px;max-width:1400px">The seam: <em>OCR never writes Japanese. Shisa never sees an image.</em></h2>
+  <div class="seam">
+    <div class="stack">
+      <div class="box"><span class="sp">OpenAI</span><h4>Vision → strict JSON</h4><p>Responses API, strict structured outputs. docType · confidence · rawText · dates · amounts · obligations. No prose. No advice.</p></div>
+      <div class="arrow">↓ rawText</div>
+      <div class="box"><h4>Deterministic pass</h4><p>Regex over the raw transcription: 令和8年9月5日, 1,200円, 金参千弐百円. Cross-checked against the model. Disagreement is shown, never resolved.</p></div>
+      <div class="arrow">↓ confidence &lt; 0.6 → summary only</div>
+      <div class="box side"><span class="sp">Qdrant</span><h4>kaifu_groundtruth · kaifu_clauses</h4><p>Clause embedded (text-embedding-3-small, vectors only) → MLIT guideline candidates. Ids only; unknown id is dropped.</p></div>
+    </div>
+    <div class="seamline"><span>image stops here · text starts here</span></div>
+    <div class="stack">
+      <div class="box"><span class="sp">Shisa</span><h4>All Japanese generation</h4><p>api.shisa.ai, Japan-hosted. Summary, JUDGE restatements, four registers and their glosses. Receives text. Never an image.</p></div>
+      <div class="arrow">allowlist: model must start with <b class="mono">shisa-ai/</b></div>
+      <div class="box"><h4>Citation or silence</h4><p>A JUDGE finding without a citation is dropped in code. <b>differs</b> is the strongest word the type allows.</p></div>
+      <div class="arrow">opt-in, anonymized</div>
+      <div class="box side"><span class="sp">Neo4j</span><h4>Corpus graph</h4><p>Document → Obligation → ClauseType → Guideline. Categories and numbers only. Queried live: clauseStats, amountStats.</p></div>
+    </div>
+  </div>
+  <div class="num">5</div>
+</section>
+
+<!-- 6 · cross-check -->
+<section class="slide" data-n="6">
+  <div class="kicker">A wrong deadline is worse than no answer</div>
+  <h2 style="font-size:54px">Every date and amount is extracted twice. When the two disagree, you see both.</h2>
+  <div class="card" style="margin-top:44px;max-width:1240px">
+    <div class="ob"><div class="a">Sign the tear-off slip and send it back with your child.</div><div class="d"><b>3 Oct (Fri)</b>令和8年10月3日（金） · 提出期限</div></div>
+    <div class="ob"><div class="a">Pay the ¥1,200 trip fee in the envelope provided.</div><div class="d"><b>¥1,200</b>1,200円 · 参加費</div></div>
+    <div class="ob" style="grid-template-columns:1fr"><div class="a">Pack a boxed lunch, a drink and a rain jacket on the day.</div>
+      <div class="conflict"><div class="lbl">Unresolved<br>dueDate</div><div class="v">model saw<b>2026-10-09</b></div><div class="v">document said<b class="jp">10月10日（金）</b></div></div>
+    </div>
+  </div>
+  <p class="src" style="margin-top:22px">Obligation.conflict { field, modelSaw, documentSaid } — the UI may not pick a winner, average, or prefer either side.</p>
+  <div class="num">6</div>
+</section>
+
+<!-- 7 · citation or silence -->
+<section class="slide" data-n="7">
+  <div class="kicker">JUDGE · citation or silence</div>
+  <div class="card" style="max-width:1280px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px"><span class="dim mono" style="font-size:15px">第15条（原状回復）第2項 · 株式会社 両国不動産</span><span class="tag shu">differs</span></div>
+    <div class="fq">前項の原状回復には、通常の使用に伴い生じた損耗及び経年変化（畳の日焼け、壁クロスの変色…）の回復を含むものとし、これらに要する費用は乙の負担とする。</div>
+    <p class="gl"><b style="font-weight:500">The clause says:</b> you pay to undo ordinary wear and ageing — sun-faded tatami, discoloured wallpaper — at move-out.</p>
+    <p class="gl" style="margin-top:12px"><b style="font-weight:500">The guideline says:</b> wear from ordinary living and the passage of time is the landlord's cost, not the tenant's.</p>
+    <div class="cite"><span class="tag">Citation</span><span>国土交通省「原状回復をめぐるトラブルとガイドライン（再改訂版）」 · 第1章 II 1 (2) 表2「原状回復の定義」 · mlit.go.jp/common/000991391.pdf</span></div>
+  </div>
+  <p class="lead" style="font-size:24px;margin-top:30px;max-width:1280px">No citation → no finding. <span class="mono">matches · differs · not_addressed</span> is the whole vocabulary. Nothing is called illegal, void, unfair, or advised against — 弁護士法 72条 is a type constraint here, not a disclaimer.</p>
+  <div class="num">7</div>
+</section>
+
+<!-- 8 · register slider -->
+<section class="slide" data-n="8">
+  <div class="kicker">REPLY · one intent, four registers</div>
+  <h2 style="font-size:48px">“tell the teacher my son is allergic to eggs”</h2>
+  <div class="ladder">
+    <div class="rung"><h5>カジュアル<span>casual</span></h5><div class="t">先生、お世話になってます。うちの子、卵アレルギーがあるので、遠足のお弁当は卵抜きで持たせますね。</div><div class="g">Plain endings. A LINE message to a teacher you see at pick-up. Too light for paper.</div></div>
+    <div class="rung hot"><h5>丁寧<span>polite · default</span></h5><div class="t">いつもお世話になっております。三年二組の○○の母です。息子は卵アレルギーがありますので、遠足当日のお弁当は卵を使わないものを持たせます。</div><div class="g">です・ます throughout, class named. The safe default for anything sent to school.</div></div>
+    <div class="rung"><h5>敬語<span>business keigo</span></h5><div class="t">息子には卵アレルギーがございますため、遠足当日の弁当は卵を除いたものを持参させていただきます。何卒よろしくお願い申し上げます。</div><div class="g">Humble forms — ございます, 持参させていただきます. Right when it will be read by staff you haven't met, or kept on file.</div></div>
+    <div class="rung"><h5>最敬語<span>formal written</span></h5><div class="t">拝啓　平素より格別のご高配を賜り、厚く御礼申し上げます。本児には鶏卵アレルギーがございますため…　敬具</div><div class="g">拝啓／敬具 brackets, 所存でございます for intent. Correct on a printed reply slip; cold in a message.</div></div>
+  </div>
+  <div class="track"><i style="left:11%"></i><i class="hot" style="left:37%"></i><i style="left:63%"></i><i style="left:88%"></i></div>
+  <p class="src" style="margin-top:26px">Four concurrent Shisa streams. The slider selects between finished buffers; it never triggers generation. Eval 2026-08-27: 10/10 scenarios pass, 0 near-identical pairs; 丁寧→敬語 is the narrowest step and is being widened.</p>
+  <div class="num">8</div>
+</section>
+
+<!-- 9 · corpus flywheel -->
+<section class="slide" data-n="9">
+  <div class="kicker">The moat · corpus graph + clause benchmark</div>
+  <h2 style="font-size:54px">Every opt-in decode adds a skeleton, never a document.</h2>
+  <div class="g2">
+    <div>
+      <div class="node"><b>(:Document)</b> <span class="k">{docType, ward?, issuedMonth, confidence}</span><br>&nbsp;&nbsp;-[:HAS_OBLIGATION]-&gt; <b>(:Obligation)</b> <span class="k">{kind, amountYen?, daysUntilDue?}</span><br>&nbsp;&nbsp;-[:CONTAINS_CLAUSE {status}]-&gt; <b>(:ClauseType)</b><br>&nbsp;&nbsp;&nbsp;&nbsp;-[:GOVERNED_BY]-&gt; <b>(:Guideline)</b> <span class="k">{source, section, url}</span></div>
+      <div class="rule"></div>
+      <div class="node"><b>Qdrant</b> kaifu_groundtruth — the six MLIT entries, 1536-d<br><b>Qdrant</b> kaifu_clauses — fixture clauses tagged by topic (benchmark seed)<br><b>Neo4j</b> — 17 seeded documents today; <span class="k">Early corpus</span> label below 20</div>
+    </div>
+    <ul class="list">
+      <li><b>Never stored</b><span class="m">image · rawText · titleJa · issuer · summary · clause text · absolute dates. graph.test.ts pushes sentinel PII through and asserts none reaches Cypher.</span></li>
+      <li><b>Today</b><span class="m">One neutral sentence under each finding, e.g. “Early corpus — in the KAIFŪ corpus, N of M leases contain a clause on this point; K differ from the guideline.” Served live from Neo4j in the X-Kaifu-Benchmark header.</span></li>
+      <li><b>At 10,000 documents</b><span class="m">How common is this clause, how often does it differ, what does this ward usually charge — an “is this normal?” benchmark for Japanese leases, graded against MLIT's own standard lease. It does not exist yet, anywhere.</span></li>
+    </ul>
+  </div>
+  <div class="num">9</div>
+</section>
+
+<!-- 10 · market + competitors -->
+<section class="slide" data-n="10">
+  <div class="kicker">Market and competitors, honestly</div>
+  <div class="row">
+    <div class="col">
+      <div class="stat" style="font-size:88px">84,759<small>children in public schools needing Japanese language support (May 2025). 73,313 foreign nationals, that group +27% in two years. In 39% of all public schools.</small></div>
+      <div class="src">文部科学省 · published 2026-05-25</div>
+      <div class="rule"></div>
+      <div class="stat" style="font-size:88px">371,215<small>workplaces employ foreign staff — 2.57M workers, both records (Oct 2025).</small></div>
+      <div class="src">厚生労働省 · 外国人雇用状況 令和7年10月末</div>
+    </div>
+    <div class="col">
+      <ul class="list" style="font-size:21px">
+        <li><b>Google Lens / DeepL</b><span class="m">The real baseline. Renders words; extracts nothing; drafts nothing.</span></li>
+        <li><b>NaviNichi.AI</b> · launched 10 Aug 2026<span class="m">Workflow platform; works because the institution is onboarded. KAIFŪ works from a photo with no relationship to anyone.</span></li>
+        <li><b>TransHero</b> · May 2026<span class="m">Scene-mode translator with polite-expression output. One register at a time; no obligations, no ground truth.</span></li>
+        <li><b>かすたねっと (MEXT)</b><span class="m">Library of pre-translated templates a school might send. Supply side. Can't decode the paper in a parent's hand.</span></li>
+        <li><b>GTN</b><span class="m">The human version: 596 staff, 24 offices, 25 languages, 750,000 residents supported. Design partner, not competitor.</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="num">10</div>
+</section>
+
+<!-- 11 · business -->
+<section class="slide" data-n="11">
+  <div class="kicker">Business</div>
+  <h2 style="margin-bottom:44px">Free decode → paid judge → B2B2C.</h2>
+  <div class="layer"><b>Free<span>decode + reply</span></b><p>Acquisition. The school notice, the tax letter, the reply at the right register. No account, nothing stored.</p></div>
+  <div class="layer"><b>Paid<span>judge</span></b><p>One lease, one fee, at the signing moment. LegalOn sells to corporate legal departments on annual quoted contracts; nobody checks a lease <strong>on behalf of the foreign tenant</strong>.</p></div>
+  <div class="layer"><b>B2B2C<span>channels</span></b><p><strong>Rent guarantors and agencies</strong> who meet foreign tenants at signing (GTN partners with ~42,000 real-estate companies). <strong>Boards of education</strong>: MEXT's きめ細かな支援事業 is ¥1.396bn for FY2026, up 21%; multilingual translation systems are a named eligible expense at a 1/3 subsidy.</p></div>
+  <div class="num">11</div>
+</section>
+
+<!-- 12 · ask + thanks -->
+<section class="slide" data-n="12">
+  <div class="kicker">The ask</div>
+  <h2>One rent-guarantee company. One board of education. One native reviewer for the register eval.</h2>
+  <div class="rule" style="margin-top:64px"></div>
+  <div class="marks">
+    <span>Shisa<small>Japanese generation · register engine</small></span>
+    <span>OpenAI<small>vision · embeddings</small></span>
+    <span>Qdrant<small>ground-truth retrieval · benchmark</small></span>
+    <span>Neo4j<small>corpus graph</small></span>
+  </div>
+  <div class="marks" style="margin-top:40px">
+    <span class="p">CreatorLabo</span><span class="p">HackerSquad</span><span class="p">Tokyo AI</span>
+  </div>
+  <div style="position:absolute;left:112px;bottom:56px;font:400 18px var(--sans);color:var(--sumi-2)">Raymond Chen · KAIFŪ 開封 · rchen.workmail@gmail.com</div>
+  <div class="num">12</div>
+</section>
+
+</div>
+<div id="help">← → space · click · F fullscreen · 1–9,0 jump</div>
+<script>
+(function(){
+  var slides=[].slice.call(document.querySelectorAll('.slide')),i=0;
+  function fit(){var s=Math.min(innerWidth/1600,innerHeight/900);slides.forEach(function(el){el.style.transform='scale('+s+')'});}
+  function show(n){i=Math.max(0,Math.min(slides.length-1,n));slides.forEach(function(el,k){el.classList.toggle('on',k===i)});location.hash=i+1;}
+  addEventListener('resize',fit);fit();
+  addEventListener('hashchange',function(){var h=parseInt(location.hash.slice(1),10);if(!isNaN(h)&&h-1!==i)show(h-1);});
+  var h=parseInt(location.hash.slice(1),10);show(isNaN(h)?0:h-1);
+  addEventListener('keydown',function(e){
+    if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'||e.key==='Enter')show(i+1);
+    else if(e.key==='ArrowLeft'||e.key==='PageUp'||e.key==='Backspace')show(i-1);
+    else if(e.key==='Home')show(0);else if(e.key==='End')show(slides.length-1);
+    else if(e.key==='f'||e.key==='F'){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen();}
+    else if(/^[0-9]$/.test(e.key))show(e.key==='0'?9:parseInt(e.key,10)-1);
+    else return;e.preventDefault();
+  });
+  document.getElementById('stage').addEventListener('click',function(e){show(e.clientX<innerWidth*0.2?i-1:i+1);});
+})();
+</script>
+</body>
+</html>

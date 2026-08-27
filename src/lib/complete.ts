@@ -7,11 +7,17 @@
  */
 
 import { createShisaClient } from "@/lib/shisa";
+import { withRateLimitRetry } from "@/lib/backoff";
 import type { Completer } from "@/lib/judge";
+
+/** Inside the route's 60 s budget with room for vision and the card. */
+const SHISA_TIMEOUT_MS = 30_000;
 
 export const completeWithShisa: Completer = async (system, user) => {
   const client = createShisaClient();
-  const res = await fetch(`${client.baseUrl}/chat/completions`, {
+  // JUDGE fires alongside the card request; the gateway's per-key limiter
+  // answers that burst with 429, so this must retry the way shisa.ts does.
+  const res = await withRateLimitRetry(() => fetch(`${client.baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -27,7 +33,8 @@ export const completeWithShisa: Completer = async (system, user) => {
       temperature: 0.1,
       max_tokens: 1500,
     }),
-  });
+    signal: AbortSignal.timeout(SHISA_TIMEOUT_MS),
+  }));
   if (!res.ok) {
     throw new Error(`Shisa request failed: ${res.status}`);
   }

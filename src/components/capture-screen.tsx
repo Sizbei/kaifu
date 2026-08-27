@@ -8,6 +8,9 @@ interface CaptureScreenProps {
   onFile: (file: File) => void;
   error: string | null;
   mockLabel: string | null;
+  /** Corpus opt-in. Off unless the user has ticked it. */
+  contribute: boolean;
+  onContributeChange: (on: boolean) => void;
 }
 
 /** A sealed envelope, drawn rather than photographed. Sets the metaphor. */
@@ -44,7 +47,13 @@ function EnvelopeMark() {
   );
 }
 
-export function CaptureScreen({ onFile, error, mockLabel }: CaptureScreenProps) {
+export function CaptureScreen({
+  onFile,
+  error,
+  mockLabel,
+  contribute,
+  onContributeChange,
+}: CaptureScreenProps) {
   const cameraRef = useRef<HTMLInputElement>(null);
   const libraryRef = useRef<HTMLInputElement>(null);
 
@@ -126,11 +135,39 @@ export function CaptureScreen({ onFile, error, mockLabel }: CaptureScreenProps) 
       <div className="mt-6 flex items-start gap-3 border-t border-rule pt-5">
         <SealIcon className="mt-px size-[17px] text-matcha" />
         <p className="text-[13px] leading-[1.55] text-sumi-soft">
-          <span className="font-medium text-sumi">Nothing is kept.</span> The photo is read once
-          and discarded. No image, no transcribed text, no history is stored — not on this device,
-          not on our side. Your name, address, salary and status stay on the paper.
+          <span className="font-medium text-sumi">
+            Nothing is kept unless you choose to contribute, below.
+          </span>{" "}
+          The photo is read once and discarded. No image, no transcribed text, no history is
+          stored — not on this device, not on our side. Your name, address, salary and status stay
+          on the paper.
         </p>
       </div>
+
+      {/* Opt-in, default off, and honest about exactly what a contribution is. */}
+      <label className="mt-4 flex cursor-pointer items-start gap-3">
+        <input
+          type="checkbox"
+          checked={contribute}
+          onChange={(event) => onContributeChange(event.target.checked)}
+          className="mt-[3px] size-4 shrink-0 accent-[var(--ai)]"
+        />
+        <span className="text-[13px] leading-[1.55] text-sumi-soft">
+          <span className="font-medium text-sumi">
+            Add this document&apos;s anonymized skeleton to the corpus.
+          </span>{" "}
+          Stored: document type, obligation kind, amount, days until due, clause type and guideline
+          status. Never the text, names or image.{" "}
+          <a
+            href="https://github.com/Sizbei/kaifu/blob/main/docs/ARCHITECTURE.md#7-the-corpus-graph-neo4j"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-ai underline decoration-ai-line underline-offset-[3px]"
+          >
+            What is stored, exactly
+          </a>
+        </span>
+      </label>
     </section>
   );
 }

@@ -11,6 +11,8 @@ import { crossCheck } from "@/lib/extract";
 import { judgeClause } from "@/lib/judge";
 import { completeWithShisa } from "@/lib/complete";
 import { generateActionCard } from "@/lib/shisa";
+import { clauseStats, recordDecode, wardFromIssuer, type ClauseStats } from "@/lib/graph";
+import { findEntryByCitation } from "@/lib/groundtruth";
 import {
   CONFIDENCE_THRESHOLD,
   type ActionCard,
@@ -31,6 +33,49 @@ function isDecodeRequest(body: unknown): body is DecodeRequest {
     typeof (body as DecodeRequest).imageBase64 === "string" &&
     typeof (body as DecodeRequest).outputLang === "string"
   );
+}
+
+/**
+ * `contribute` is the corpus-graph opt-in. DecodeRequest is frozen, so it is
+ * read off the raw body here. Anything but a literal `true` means no.
+ */
+function wantsContribution(body: unknown): boolean {
+  return typeof body === "object" && body !== null && (body as { contribute?: unknown }).contribute === true;
+}
+
+/** "YYYY-MM" of now: the coarsest useful timestamp for a corpus row. */
+function currentMonth(): string {
+  return new Date().toISOString().slice(0, 7);
+}
+
+/**
+ * Corpus benchmark for a lease: per cited clause type, how the rest of the
+ * corpus sits against the same guideline. Null when the graph is off.
+ */
+async function benchmarkFor(card: ActionCard): Promise<Record<string, ClauseStats> | null> {
+  if (card.docType !== "lease_clause" || card.findings.length === 0) return null;
+  const ids = [...new Set(card.findings.flatMap((f) => findEntryByCitation(f.citation)?.id ?? []))];
+  const stats = await Promise.all(ids.map((id) => clauseStats(id)));
+  const present = ids.flatMap((id, i) => {
+    const s = stats[i];
+    return s ? [[id, s] as [string, ClauseStats]] : [];
+  });
+  return present.length ? Object.fromEntries(present) : null;
+}
+
+/**
+ * A failure upstream is not a failure of the photo. Only the vision
+ * model's own rejection earns the photo hint.
+ */
+function describeFailure(err: unknown): string {
+  if (err instanceof VisionConfigError) return "Server is missing its vision API key.";
+  const status = (err as { status?: unknown } | null)?.status;
+  const message = err instanceof Error ? err.message : String(err);
+  if (status === 429 || /credits|quota/i.test(message)) {
+    return "Vision service is out of credits — try the demo mode.";
+  }
+  if (/shisa/i.test(message)) return "Reply service is busy — try again in a moment.";
+  return "Could not read this document. Try a flatter, better-lit photo.";
 }
 
 export async function POST(req: Request): Promise<NextResponse<DecodeResponse>> {
@@ -62,7 +107,13 @@ export async function POST(req: Request): Promise<NextResponse<DecodeResponse>> 
     // 4. Card text and (for leases) findings are independent; run them together.
     const [text, findings] = await Promise.all([
       generateActionCard(vision, obligations, body.outputLang),
-      summaryOnly ? Promise.resolve([]) : judgeClause(vision, body.outputLang, completeWithShisa),
+      summaryOnly
+        ? Promise.resolve([])
+        : // A lease card without findings beats a 502 with a photo hint.
+          judgeClause(vision, body.outputLang, completeWithShisa).catch((e: unknown) => {
+            console.warn("[decode] judge failed", e);
+            return [];
+          }),
     ]);
 
     const card: ActionCard = {
@@ -75,14 +126,23 @@ export async function POST(req: Request): Promise<NextResponse<DecodeResponse>> 
       summaryOnly,
       findings,
     };
-    return NextResponse.json({ ok: true, card });
+
+    // Opt-in only. Fire-and-forget: the user's card never waits on the sidecar.
+    if (wantsContribution(body)) {
+      recordDecode(card, {
+        ward: wardFromIssuer(vision.issuer, vision.docType),
+        issuedMonth: currentMonth(),
+        confidence: vision.confidence,
+      }).catch((err: unknown) => console.warn("[decode] corpus write failed", err));
+    }
+
+    // ActionCard is frozen, so the benchmark rides in a header rather than on the card.
+    const benchmark = await benchmarkFor(card);
+    const headers = benchmark ? { "X-Kaifu-Benchmark": JSON.stringify(benchmark) } : undefined;
+    return NextResponse.json({ ok: true, card }, { headers });
   } catch (err) {
     // Upstream detail goes to the server log; the user gets a remedy.
     console.error("[decode]", err);
-    const error =
-      err instanceof VisionConfigError
-        ? "Server is missing its vision API key."
-        : "Could not read this document. Try a flatter, better-lit photo.";
-    return NextResponse.json({ ok: false, error }, { status: 502 });
+    return NextResponse.json({ ok: false, error: describeFailure(err) }, { status: 502 });
   }
 }

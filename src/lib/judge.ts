@@ -19,6 +19,8 @@
 
 import { JudgeFindingSchema, type JudgeFinding, type VisionResult } from "@/lib/types";
 import { GROUND_TRUTH, findEntryByCitation, type GroundTruthEntry } from "@/lib/groundtruth";
+import { openAiEmbedder } from "@/lib/embed";
+import { retrieverFromEnv, type Retriever } from "@/lib/retrieval";
 
 /**
  * The only thing JUDGE needs from a language model. Declared here rather
@@ -30,13 +32,19 @@ export type Completer = (system: string, user: string) => Promise<string>;
 const MAX_CANDIDATES = 3;
 
 /* ------------------------------------------------------------------ *
- * Gate 1 — deterministic retrieval.
- * No vector DB in v0: substring hits on curated Japanese keywords. Ranked
- * by hit count, stable-sorted, so the same clause always routes the same
- * way and a routing regression shows up in a test rather than in the wild.
+ * Gate 1 — retrieval.
+ *
+ * Vector search (Qdrant + text-embedding-3-small) first, because real
+ * clauses paraphrase: 「畳の日焼け」 is a 経年変化 clause with no hint
+ * keyword in it. Keyword hints remain as the fallback and as a safety net:
+ * if the vector sidecar is unconfigured, unreachable, or finds nothing
+ * above threshold, substring hits on curated Japanese keywords route the
+ * clause exactly as v0 did. Either way the result is a subset of
+ * GROUND_TRUTH — a point id the corpus does not know is discarded, so the
+ * store can never introduce a source.
  * ------------------------------------------------------------------ */
 
-export function retrieveEntries(
+export function retrieveByHints(
   clauseText: string,
   limit: number = MAX_CANDIDATES,
 ): readonly GroundTruthEntry[] {
@@ -48,6 +56,56 @@ export function retrieveEntries(
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
     .map((c) => c.entry);
+}
+
+/**
+ * Resolved lazily so importing this module never touches the network or
+ * the environment, and memoised so the Qdrant client is built once.
+ */
+const liveRetriever = (() => {
+  let cached: Retriever | null | undefined;
+  return (): Retriever | null => {
+    if (cached !== undefined) return cached;
+    cached = retrieverFromEnv(openAiEmbedder());
+    // QDRANT_URL set but no embedder means someone configured Qdrant and
+    // forgot the key — say so once. An unset QDRANT_URL is a choice, not a fault.
+    if (cached === null && process.env.QDRANT_URL) warnFallback("OPENAI_API_KEY is not set");
+    return cached;
+  };
+})();
+
+/** One warning per process: a down sidecar is news once, not per clause. */
+const warnFallback = (() => {
+  let warned = false;
+  return (reason: string): void => {
+    if (warned) return;
+    warned = true;
+    console.warn(`judge: vector retrieval unavailable (${reason}); using hint routing`);
+  };
+})();
+
+/**
+ * @param retriever injected for testing; defaults to the env-configured
+ *   Qdrant retriever, or null (hints only) when it is not configured.
+ */
+export async function retrieveEntries(
+  clauseText: string,
+  limit: number = MAX_CANDIDATES,
+  retriever: Retriever | null = liveRetriever(),
+): Promise<readonly GroundTruthEntry[]> {
+  if (retriever === null) return retrieveByHints(clauseText, limit);
+
+  try {
+    const hits = await retriever.retrieve(clauseText, limit);
+    // Score order from the store is preserved; unknown keys drop out here.
+    const entries = [...hits]
+      .sort((a, b) => b.score - a.score)
+      .flatMap((h) => GROUND_TRUTH.filter((e) => e.id === h.key));
+    return entries.length > 0 ? entries : retrieveByHints(clauseText, limit);
+  } catch (err) {
+    warnFallback(err instanceof Error ? err.message : String(err));
+    return retrieveByHints(clauseText, limit);
+  }
 }
 
 /* ------------------------------------------------------------------ *
@@ -67,8 +125,12 @@ export class AdviceLanguageError extends Error {
  * under-blocking is practising law without a licence.
  */
 const PROHIBITED: readonly RegExp[] = [
-  // Obligation and recommendation.
-  /\b(should|shouldn't|must|mustn't|ought to|have to|has to|need to|needs to|required to)\b/i,
+  // Recommendation. "The tenant must restore the room" restates a clause and
+  // survives; "you must" / "should" is counsel and does not.
+  /\b(should|shouldn't|ought to)\b/i,
+  /\byou (must|mustn't|need to|have to|will need to)\b/i,
+  // Prohibition — a legal conclusion in KAIFŪ's voice.
+  /\b(cannot|can't|may not|must not|mustn't|is not (allowed|permitted|entitled)|are not (allowed|permitted|entitled)|not (obligated|obliged|liable|responsible|required) (to|for)|does not owe|do not owe|prohibited|forbidden|no obligation)\b/i,
   /\b(recommend|recommended|advise|advice|advisable|we suggest)\b/i,
   // Legal characterisation beyond "differs".
   /\b(illegal|unlawful|invalid|void|unenforceable|non-binding|not binding|breach of law)\b/i,
@@ -84,6 +146,7 @@ const PROHIBITED: readonly RegExp[] = [
   /(権利があ|権利です|請求でき|請求可能|拒否でき|拒否する|支払う必要はあ|払う必要はあ)/,
   /(すべきで|するべき|した方がよ|したほうがよ|おすすめ|お勧め|勧めます)/,
   /(交渉し|ましょう|訴え|訴訟|弁護士に相談|裁判)/,
+  /(認められ(ない|ません)|負担する必要は|支払う必要は|義務はない|義務はありません|請求(すること)?はできない|請求できない|違反|許され(ない|ません)|禁止|返還される|返ってくる)/,
 ];
 
 /**
@@ -251,7 +314,7 @@ export async function judgeClause(
   const clauseText = vision.rawText.trim();
   if (clauseText === "") return [];
 
-  const candidates = retrieveEntries(clauseText);
+  const candidates = await retrieveEntries(clauseText);
   if (candidates.length === 0) return [];
 
   const reply = await complete(

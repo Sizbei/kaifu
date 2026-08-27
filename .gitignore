@@ -42,3 +42,7 @@ next-env.d.ts
 
 # ...but the template IS committed
 !.env.example
+
+# playwright e2e
+/playwright-report
+/test-results

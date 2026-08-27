@@ -1,0 +1,194 @@
+titleCard:
+  title: "KAIFŪ 開封"
+  subtitle: "Point your camera at any Japanese paper and know what to do"
+  duration: 3500
+app:
+  url: "http://localhost:3125/?mock=1"
+  viewport:
+    width: 1920
+    height: 1080
+  scale: 2
+  zoom: 1.25
+  colorScheme: "light"
+  setup:
+    - type: "clearcookies"
+tts:
+  provider: "edge"
+  voice: "en-US-AndrewMultilingualNeural"
+  speed: 1
+recording:
+  outputDir: "."
+  fps: 30
+segments:
+  - id: "problem"
+    narration: "Four million foreign residents in Japan get paper they can't read. School notices, ward office mail, lease clauses. Translation tells you what it says. Nothing tells you what you have to do."
+    intent: "hold on the capture screen: the envelope, the headline, the privacy line"
+    actions:
+      - type: "goto"
+        url: "http://localhost:3125/?mock=1"
+        done:
+          networkIdle: true
+          stable: 1500
+          timeout: 30000
+      - type: "wait"
+        duration: 2500
+    timing: "parallel"
+    audioDuration: 11616
+    videoDuration: 11617
+  - id: "capture"
+    narration: "Photograph the document. Kaifū reads it once and keeps nothing. No image, no text, no history."
+    intent: "upload the school excursion notice; processing screen shows the three named stages"
+    actions:
+      - type: "upload"
+        target:
+          selector: "input[type=file]:not([capture])"
+        file: "public/samples/school-excursion.photo.jpg"
+        done:
+          text:
+            selector: "body"
+            has: "Reading the document"
+          timeout: 15000
+      - type: "wait"
+        duration: 2500
+    timing: "parallel"
+    audioDuration: 8136
+    videoDuration: 8138
+  - id: "card"
+    narration: "What this is. What you must do. By when. Each obligation goes to your calendar with one tap."
+    intent: "the action card lands: hero line, Japanese title, three obligations"
+    actions:
+      - type: "wait"
+        duration: 500
+      - type: "scroll"
+        target:
+          text: "What you have to do"
+        done:
+          stable: 1000
+          timeout: 20000
+      - type: "wait"
+        duration: 2500
+    timing: "parallel"
+    audioDuration: 6696
+    videoDuration: 6697
+  - id: "conflict"
+    narration: "When the model and the page disagree about a date, Kaifū shows you both. It never picks one for you. A wrong deadline is worse than no answer."
+    intent: "scroll to the flagged obligation showing 'the scan read' vs 'the page says'"
+    actions:
+      - type: "scroll"
+        target:
+          text: "against the paper"
+        done:
+          stable: 1000
+          timeout: 10000
+      - type: "wait"
+        duration: 3000
+    timing: "parallel"
+    audioDuration: 9264
+    videoDuration: 9265
+  - id: "intent"
+    narration: "Now reply. Type what you want to say, in English."
+    intent: "scroll to the reply composer and type the allergy note"
+    actions:
+      - type: "scroll"
+        target:
+          text: "What do you want to say?"
+        done:
+          stable: 800
+          timeout: 10000
+      - type: "click"
+        target:
+          role: "textbox"
+          name: "What do you want to say?"
+      - type: "type"
+        target:
+          role: "textbox"
+          name: "What do you want to say?"
+        text: "Tell the teacher my son is allergic to eggs and can't eat egg items in the bento."
+        delay: 30
+      - type: "click"
+        target:
+          role: "button"
+          name: "Write it in Japanese"
+        done:
+          text:
+            selector: "body"
+            has: "先生"
+          timeout: 20000
+      - type: "wait"
+        duration: 1500
+    timing: "parallel"
+    audioDuration: 3048
+    videoDuration: 7567
+  - id: "register"
+    narration: "Japanese generation runs on Shisa, hosted in Japan. Four politeness levels stream at once. Slide, and the same message re-renders — with a note on what changed and why."
+    intent: "step the slider from 丁寧 up to 敬語 and 最敬語; the gloss changes under each"
+    actions:
+      - type: "scroll"
+        target:
+          role: "slider"
+          name: "Politeness register"
+        done:
+          stable: 800
+          timeout: 10000
+      - type: "click"
+        target:
+          role: "slider"
+          name: "Politeness register"
+      - type: "wait"
+        duration: 2000
+      - type: "press"
+        key: "ArrowRight"
+      - type: "wait"
+        duration: 2500
+      - type: "press"
+        key: "ArrowRight"
+      - type: "wait"
+        duration: 2500
+    timing: "parallel"
+    audioDuration: 11232
+    videoDuration: 11234
+  - id: "lease"
+    narration: "The kicker. A lease clause. Kaifū sets it beside the national guideline and shows exactly where it differs — with the citation, every time."
+    intent: "open the lease mock, upload the restoration clause, land on the findings"
+    actions:
+      - type: "goto"
+        url: "http://localhost:3125/?mock=lease"
+        done:
+          networkIdle: true
+          stable: 1200
+          timeout: 30000
+      - type: "upload"
+        target:
+          selector: "input[type=file]:not([capture])"
+        file: "public/samples/lease-restoration.photo.jpg"
+        done:
+          text:
+            selector: "body"
+            has: "Clauses against the guideline"
+          timeout: 20000
+      - type: "scroll"
+        target:
+          selector: "span:text-is('Differs from the guideline')"
+        done:
+          stable: 1000
+          timeout: 10000
+      - type: "wait"
+        duration: 3000
+    timing: "parallel"
+    audioDuration: 9144
+    videoDuration: 10747
+  - id: "payoff"
+    narration: "This exact clause cost me a week of my life last month. Kaifū reads it in eight seconds. Not legal advice — the guideline, cited, next to your paper."
+    intent: "hold on the finding with the 国土交通省 citation and the 'not legal advice' line"
+    actions:
+      - type: "scroll"
+        target:
+          selector: "p:has-text('not legal advice')"
+        done:
+          stable: 800
+          timeout: 10000
+      - type: "wait"
+        duration: 3500
+    timing: "parallel"
+    audioDuration: 10992
+    videoDuration: 10994

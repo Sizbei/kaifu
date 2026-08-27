@@ -9,7 +9,7 @@
  * and src/lib/vision.test.ts guards the wording.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 
 import { describeTaxonomyForPrompt } from "@/lib/doctypes";
 import { VisionResultSchema, type VisionResult } from "@/lib/types";
@@ -23,15 +23,15 @@ import { VisionResultSchema, type VisionResult } from "@/lib/types";
 export { CONFIDENCE_THRESHOLD } from "@/lib/types";
 
 /**
- * Opus 5 — the strongest vision model available, and this is the only stage
+ * GPT-5.6 — the current flagship vision model, and this is the only stage
  * where accuracy is unrecoverable: a character missed here is missed by every
  * downstream stage, because extract.ts regexes over `rawText` and Shisa never
- * sees the image. Overridable via `opts.model` for cost experiments.
+ * sees the image. Overridable via OPENAI_VISION_MODEL or `opts.model`.
  */
-const DEFAULT_MODEL = "claude-opus-5";
+const DEFAULT_MODEL = "gpt-5.5";
 
 /** Generous: a dense A4 notice transcribed verbatim is the long case. */
-const MAX_TOKENS = 16000;
+const MAX_OUTPUT_TOKENS = 16000;
 
 /* ------------------------------------------------------------------ *
  * Typed errors. Each one names a distinct failure the caller can act
@@ -48,10 +48,10 @@ export class VisionError extends Error {
 /** The process is misconfigured. Retrying will not help. */
 export class VisionConfigError extends VisionError {}
 
-/** The model answered, but not with the tool call we forced. */
+/** The model answered, but not with the structured output we forced. */
 export class VisionResponseError extends VisionError {}
 
-/** The model called the tool with JSON that violates the shared contract. */
+/** The model emitted JSON that violates the shared contract. */
 export class VisionSchemaError extends VisionError {}
 
 /* ------------------------------------------------------------------ *
@@ -62,13 +62,19 @@ export class VisionSchemaError extends VisionError {}
  * "exactly as printed" rule at the point the model fills the field,
  * and `conflict` is deliberately absent — conflicts are computed by
  * cross-checking against extract.ts, so the model must not be able to
- * assert one. Zod's `.default(null)` fills it in on parse.
+ * assert one. With `strict: true` and `additionalProperties: false`
+ * the API rejects any key outside this schema, so the model cannot
+ * smuggle one in. Zod's `.default(null)` fills it in on parse.
  * ------------------------------------------------------------------ */
 
 const DATE_SCHEMA = {
   type: "object",
   properties: {
-    iso: { type: "string", description: "ISO 8601 date, e.g. 2026-09-05." },
+    iso: {
+      type: "string",
+      pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+      description: "ISO 8601 date, YYYY-MM-DD, e.g. 2026-09-05. Zero-padded; never a range or a partial.",
+    },
     raw: {
       type: "string",
       description:
@@ -96,12 +102,13 @@ const AMOUNT_SCHEMA = {
 
 const nullable = (schema: unknown) => ({ anyOf: [schema, { type: "null" }] });
 
-export const VISION_TOOL: Anthropic.Tool = {
+export const VISION_FORMAT: OpenAI.Responses.ResponseFormatTextJSONSchemaConfig = {
+  type: "json_schema",
   name: "record_document",
   description:
     "Record what is visible on the document. This is the only way to answer. Every field is a report of what is printed on the page — never an interpretation of it.",
   strict: true,
-  input_schema: {
+  schema: {
     type: "object",
     properties: {
       docType: {
@@ -164,7 +171,7 @@ export const VISION_TOOL: Anthropic.Tool = {
 
 export const VISION_SYSTEM_PROMPT = `You are the OCR and extraction stage of a two-stage pipeline for Japanese household documents. A separate model writes everything the reader ever sees. Your only job is to report what is on the image.
 
-Answer by calling the record_document tool. Return JSON only. Do not write prose. Do not translate. Do not advise. Do not editorialise. Do not add commentary of any kind, before, after, or inside the tool call. Do not generate Japanese — you may only transcribe the Japanese that is already printed on the page. Never tell the reader what to do about the document; another stage does that.
+Answer with a single record_document JSON object. Return JSON only. Do not write prose. Do not translate. Do not advise. Do not editorialise. Do not add commentary of any kind, before, after, or inside the JSON. Do not generate Japanese — you may only transcribe the Japanese that is already printed on the page. Never tell the reader what to do about the document; another stage does that.
 
 TRANSCRIPTION
 Put every visible Japanese character into rawText, verbatim. Include handwritten annotations, hand-corrected figures, stamps, red pen, and anything written in the margins — a handwritten change to a printed date is usually the part that matters. Preserve line breaks and reading order. Never summarise, never abridge, never paraphrase, never "clean up" the text. A later deterministic pass searches rawText for dates and amounts, so anything you leave out is lost for good.
@@ -196,49 +203,60 @@ export async function analyzeDocument(
   imageBase64: string,
   opts: AnalyzeOptions = {},
 ): Promise<VisionResult> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new VisionConfigError(
-      "ANTHROPIC_API_KEY is not set. Export it in the server environment (e.g. .env.local) before calling analyzeDocument.",
+      "OPENAI_API_KEY is not set. Export it in the server environment (e.g. .env.local) before calling analyzeDocument.",
     );
   }
 
-  const client = new Anthropic({ apiKey });
+  // Bounded so the route answers inside its own 60 s budget rather than a platform 504.
+  const client = new OpenAI({ apiKey, timeout: 45_000, maxRetries: 1 });
 
-  const response = await client.messages.create({
-    model: opts.model ?? DEFAULT_MODEL,
-    max_tokens: MAX_TOKENS,
-    system: VISION_SYSTEM_PROMPT,
-    tools: [VISION_TOOL],
-    // Forced: the seam holds only if a text answer is not reachable.
-    tool_choice: { type: "tool", name: VISION_TOOL.name },
-    messages: [
+  const response = await client.responses.create({
+    model: opts.model ?? process.env.OPENAI_VISION_MODEL ?? DEFAULT_MODEL,
+    max_output_tokens: MAX_OUTPUT_TOKENS,
+    instructions: VISION_SYSTEM_PROMPT,
+    // Forced: the seam holds only if a free-text answer is not reachable.
+    text: { format: VISION_FORMAT },
+    input: [
       {
         role: "user",
         content: [
           {
-            type: "image",
-            source: { type: "base64", media_type: "image/jpeg", data: imageBase64 },
+            type: "input_image",
+            image_url: `data:image/jpeg;base64,${imageBase64}`,
+            // Furigana and handwritten corrections vanish at the default tiling.
+            detail: "high",
           },
-          { type: "text", text: "Record this document." },
+          { type: "input_text", text: "Record this document." },
         ],
       },
     ],
   });
 
-  const toolUse = response.content.find(
-    (block): block is Anthropic.ToolUseBlock =>
-      block.type === "tool_use" && block.name === VISION_TOOL.name,
+  const message = response.output.find(
+    (item): item is OpenAI.Responses.ResponseOutputMessage => item.type === "message",
   );
+  const content = message?.content[0];
 
-  if (!toolUse) {
-    throw new VisionResponseError(
-      `The model returned no ${VISION_TOOL.name} call (stop_reason: ${response.stop_reason}).`,
-    );
+  if (!content || content.type !== "output_text") {
+    const detail =
+      content?.type === "refusal"
+        ? `refusal: ${content.refusal}`
+        : `status: ${response.status}, reason: ${response.incomplete_details?.reason ?? "none"}`;
+    throw new VisionResponseError(`The model returned no ${VISION_FORMAT.name} JSON (${detail}).`);
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content.text);
+  } catch (cause) {
+    throw new VisionResponseError("The model's output_text is not valid JSON.", { cause });
   }
 
   try {
-    return VisionResultSchema.parse(toolUse.input);
+    return VisionResultSchema.parse(parsed);
   } catch (cause) {
     throw new VisionSchemaError(
       "The vision model returned JSON that does not satisfy VisionResultSchema.",

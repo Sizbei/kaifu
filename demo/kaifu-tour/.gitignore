@@ -1,0 +1,6 @@
+*.mp4
+cookies*.json
+audio/
+video-raw/
+.frames/
+error-*.png

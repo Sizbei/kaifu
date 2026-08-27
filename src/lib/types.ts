@@ -31,7 +31,7 @@ export type DocType = (typeof DOC_TYPES)[number];
 
 export const ExtractedDateSchema = z.object({
   /** ISO 8601 date, e.g. "2026-09-05". */
-  iso: z.string(),
+  iso: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   /** Exactly as printed on the document, e.g. "令和8年9月5日". */
   raw: z.string(),
   /** What the date is for, in the document's own words. */

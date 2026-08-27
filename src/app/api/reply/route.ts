@@ -42,7 +42,13 @@ export async function POST(req: Request): Promise<Response> {
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      const send = (e: ReplyEvent) => controller.enqueue(encoder.encode(JSON.stringify(e) + "\n"));
+      const send = (e: ReplyEvent) => {
+        // Upstream error bodies stay in the server log; the slider stop gets a fixed line.
+        const event: ReplyEvent =
+          e.type === "error" ? { ...e, message: "This level is unavailable right now." } : e;
+        if (e.type === "error") console.warn(`[reply] ${e.register} failed:`, e.message);
+        controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
+      };
       try {
         // streamRegisters never rejects for a single register's failure —
         // that arrives as an error event and the other three keep going.

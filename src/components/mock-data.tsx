@@ -1,4 +1,6 @@
 import { REGISTERS, type ActionCard, type RegisterId, type RegisterRendering, type ReplyEvent } from "@/lib/types";
+import { GROUND_TRUTH } from "@/lib/groundtruth";
+import type { BenchmarkMap } from "@/lib/benchmark";
 
 /**
  * Dev-only fixtures behind ?mock=. The backend routes land after this UI,
@@ -52,6 +54,10 @@ const SCHOOL: ActionCard = {
   ],
 };
 
+/** Real corpus entries, so the mock benchmark resolves the same way a live one does. */
+const GT_TOKUYAKU = GROUND_TRUTH.find((e) => e.id === "tsujo-sonmo-tokuyaku")!;
+const GT_DEFINITION = GROUND_TRUTH.find((e) => e.id === "genjo-kaifuku-definition")!;
+
 const LEASE: ActionCard = {
   docType: "lease_clause",
   whatThisIs: "Restoration and cleaning clauses in your tenancy agreement",
@@ -86,11 +92,7 @@ const LEASE: ActionCard = {
         "The clause makes you pay to replace all the wallpaper when you leave, no matter how long you lived there.",
       guidelineSays:
         "The guideline treats wallpaper as depreciating over roughly six years, and describes wear from ordinary living as the landlord's cost rather than the tenant's.",
-      citation: {
-        source: "国土交通省「原状回復をめぐるトラブルとガイドライン」(再改訂版)",
-        section: "第2章 II — 経過年数の考慮",
-        url: "https://www.mlit.go.jp/jutakukentiku/house/jutakukentiku_house_tk3_000020.html",
-      },
+      citation: GT_TOKUYAKU.citation,
       status: "differs",
     },
     {
@@ -99,11 +101,7 @@ const LEASE: ActionCard = {
         "Damage you cause deliberately or through carelessness is repaired at your cost.",
       guidelineSays:
         "The guideline describes the same allocation: damage beyond ordinary use is attributed to the tenant.",
-      citation: {
-        source: "国土交通省「原状回復をめぐるトラブルとガイドライン」(再改訂版)",
-        section: "第1章 II — 原状回復の定義",
-        url: "https://www.mlit.go.jp/jutakukentiku/house/jutakukentiku_house_tk3_000020.html",
-      },
+      citation: GT_DEFINITION.citation,
       status: "matches",
     },
   ],
@@ -120,6 +118,16 @@ const UNCLEAR: ActionCard = {
   obligations: [],
   findings: [],
 };
+
+/** What the seeded graph answers today (5 fixture leases). Small on purpose. */
+const LEASE_BENCHMARK: BenchmarkMap = {
+  [GT_TOKUYAKU.id]: { total: 5, containing: 2, differs: 2, matches: 0 },
+  [GT_DEFINITION.id]: { total: 5, containing: 1, differs: 1, matches: 0 },
+};
+
+export function mockBenchmark(scenario: MockScenario): BenchmarkMap | null {
+  return scenario === "lease" ? LEASE_BENCHMARK : null;
+}
 
 export function mockCard(scenario: MockScenario): ActionCard {
   if (scenario === "lease") return LEASE;

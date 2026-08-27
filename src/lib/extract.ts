@@ -24,7 +24,12 @@ const KANJI_DIGIT: Record<string, number> = {
 const KANJI_SMALL_UNIT: Record<string, number> = { 十: 10, 百: 100, 千: 1000 };
 const KANJI_BIG_UNIT: Record<string, number> = { 万: 10_000, 億: 100_000_000 };
 const KANJI_UNITS = "十百千万億";
-const KANJI_NUM = "〇零一二三四五六七八九十百千万億";
+/** Formal (daiji) spellings, used on leases and receipts to resist alteration. */
+const DAIJI: Record<string, string> = {
+  壱: "一", 弐: "二", 参: "三", 肆: "四", 伍: "五", 陸: "六", 漆: "七", 捌: "八", 玖: "九", 拾: "十", 萬: "万",
+};
+const fromDaiji = (s: string): string => [...s].map((c) => DAIJI[c] ?? c).join("");
+const KANJI_NUM = "〇零一二三四五六七八九十百千万億" + Object.keys(DAIJI).join("");
 const KANJI_D = "〇零一二三四五六七八九十";
 
 /**
@@ -80,7 +85,7 @@ function scanUnitNumber(input: string): number | null {
  * 二〇二六, used in vertical writing, is positional (2026).
  */
 export function kanjiNumeralToInt(s: string): number | null {
-  const t = s.trim();
+  const t = fromDaiji(s.trim());
   if (!t || ![...t].every((c) => KANJI_NUM.includes(c))) return null;
   if (![...t].some((c) => KANJI_UNITS.includes(c))) {
     return [...t].reduce((n, c) => n * 10 + KANJI_DIGIT[c], 0);
@@ -363,8 +368,14 @@ function inferReferenceYear(vision: VisionResult): number {
  * on the obligation and left for the user to adjudicate. Returns new
  * objects; the input is never touched.
  */
-export function crossCheck(vision: VisionResult): Obligation[] {
-  const dates = parseJapaneseDates(vision.rawText, inferReferenceYear(vision));
+export function crossCheck(vision: VisionResult, now: Date = new Date()): Obligation[] {
+  // A page that prints no full date gives the model nothing to read a year
+  // from, so its year is a guess. Resolve the bare 月日 against the clock
+  // instead, and a wrong year becomes a visible conflict rather than a match.
+  const pageHasYear = collectDates(toAscii(vision.rawText)).some((m) => m.year !== null);
+  const dates = pageHasYear
+    ? parseJapaneseDates(vision.rawText, inferReferenceYear(vision))
+    : parseJapaneseDates(vision.rawText, now.getFullYear(), now);
   const amounts = parseJapaneseAmounts(vision.rawText);
 
   return vision.obligations.map((ob) => {

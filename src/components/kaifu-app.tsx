@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import type { ActionCard as ActionCardData, DecodeRequest, DecodeResponse } from "@/lib/types";
 import { prepareImage } from "@/components/image-prep";
-import { mockCard, parseMock, type MockScenario } from "@/components/mock-data";
+import { mockBenchmark, mockCard, parseMock, type MockScenario } from "@/components/mock-data";
 import { CaptureScreen } from "@/components/capture-screen";
 import { ProcessingScreen } from "@/components/processing-screen";
 import { ActionCard } from "@/components/action-card";
 import { ReplyPanel } from "@/components/reply-panel";
 import { Wordmark } from "@/components/ui";
 import { BackIcon } from "@/components/icons";
+import { BENCHMARK_HEADER, parseBenchmarkHeader, type BenchmarkMap } from "@/lib/benchmark";
 
 type Phase = "capture" | "processing" | "card";
 
@@ -17,14 +18,47 @@ interface AppState {
   phase: Phase;
   previewUrl: string | null;
   card: ActionCardData | null;
+  /** Rides beside the card, never on it — ActionCard is frozen. */
+  benchmark: BenchmarkMap | null;
   error: string | null;
 }
 
-const START: AppState = { phase: "capture", previewUrl: null, card: null, error: null };
+interface Decoded {
+  card: ActionCardData;
+  benchmark: BenchmarkMap | null;
+}
+
+const START: AppState = { phase: "capture", previewUrl: null, card: null, benchmark: null, error: null };
+
+/** The corpus opt-in. Remembered per device; default off, and off again if storage misbehaves. */
+const CONTRIBUTE_KEY = "kaifu.contribute";
+
+function readContribute(): boolean {
+  try {
+    return window.localStorage.getItem(CONTRIBUTE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeContribute(on: boolean): void {
+  try {
+    window.localStorage.setItem(CONTRIBUTE_KEY, on ? "1" : "0");
+  } catch {
+    // Preference simply does not persist.
+  }
+}
 
 export function KaifuApp() {
   const [state, setState] = useState<AppState>(START);
   const [peeking, setPeeking] = useState(false);
+  const contribute = useSyncExternalStore(subscribeNever, readContribute, () => false);
+  const [contributeOverride, setContributeOverride] = useState<boolean | null>(null);
+  const contributing = contributeOverride ?? contribute;
+  const setContributing = useCallback((on: boolean) => {
+    writeContribute(on);
+    setContributeOverride(on);
+  }, []);
 
   // The dev-only ?mock= flag. Read as an external store rather than in an
   // effect: the server snapshot is null, so SSR and hydration agree, and the
@@ -46,11 +80,11 @@ export function KaifuApp() {
         const prepared = await prepareImage(file);
         setState((prev) => ({ ...prev, previewUrl: prepared.dataUrl }));
 
-        const card = mock
+        const { card, benchmark } = mock
           ? await decodeMock(mock)
-          : await decode({ imageBase64: prepared.base64, outputLang: "en" });
+          : await decode({ imageBase64: prepared.base64, outputLang: "en" }, contributing);
 
-        setState((prev) => ({ ...prev, phase: "card", card, error: null }));
+        setState((prev) => ({ ...prev, phase: "card", card, benchmark, error: null }));
       } catch (err) {
         setState({
           ...START,
@@ -61,7 +95,7 @@ export function KaifuApp() {
         });
       }
     },
-    [mock],
+    [mock, contributing],
   );
 
   const reset = useCallback(() => {
@@ -76,6 +110,8 @@ export function KaifuApp() {
           onFile={(file) => void handleFile(file)}
           error={state.error}
           mockLabel={mock ? `mock · ${mock}` : null}
+          contribute={contributing}
+          onContributeChange={setContributing}
         />
       </main>
     );
@@ -136,7 +172,7 @@ export function KaifuApp() {
       ) : null}
 
       <div className="space-y-9">
-        <ActionCard card={state.card} />
+        <ActionCard card={state.card} benchmark={state.benchmark} />
         <ReplyPanel card={state.card} mock={mock !== null} />
       </div>
 
@@ -150,11 +186,12 @@ export function KaifuApp() {
 
 const subscribeNever = () => () => {};
 
-async function decode(request: DecodeRequest): Promise<ActionCardData> {
+async function decode(request: DecodeRequest, contribute: boolean): Promise<Decoded> {
+  // `contribute` is not on DecodeRequest (frozen); the route reads it off the raw body.
   const res = await fetch("/api/decode", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(request),
+    body: JSON.stringify({ ...request, contribute }),
   });
   if (!res.ok) {
     throw new Error(
@@ -165,11 +202,14 @@ async function decode(request: DecodeRequest): Promise<ActionCardData> {
   }
   const body: DecodeResponse = await res.json();
   if (!body.ok) throw new Error(body.error);
-  return body.card;
+  return { card: body.card, benchmark: parseBenchmarkHeader(res.headers.get(BENCHMARK_HEADER)) };
 }
 
-function decodeMock(scenario: MockScenario): Promise<ActionCardData> {
+function decodeMock(scenario: MockScenario): Promise<Decoded> {
   return new Promise((resolve) => {
-    window.setTimeout(() => resolve(mockCard(scenario)), 5200);
+    window.setTimeout(
+      () => resolve({ card: mockCard(scenario), benchmark: mockBenchmark(scenario) }),
+      5200,
+    );
   });
 }

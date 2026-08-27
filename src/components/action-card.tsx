@@ -2,6 +2,7 @@ import type { ActionCard as ActionCardData, DocType } from "@/lib/types";
 import { ObligationRow } from "@/components/obligation-row";
 import { FindingRow } from "@/components/finding-row";
 import { SectionRule } from "@/components/ui";
+import { benchmarkForCitation, type BenchmarkMap } from "@/lib/benchmark";
 
 const DOC_LABEL: Record<DocType, string> = {
   school_notice: "School notice",
@@ -26,7 +27,13 @@ function SummaryOnlyNotice() {
   );
 }
 
-export function ActionCard({ card }: { card: ActionCardData }) {
+interface ActionCardProps {
+  card: ActionCardData;
+  /** Sibling of the card, not part of it: ActionCard the type is frozen. */
+  benchmark?: BenchmarkMap | null;
+}
+
+export function ActionCard({ card, benchmark = null }: ActionCardProps) {
   const hasObligations = card.obligations.length > 0;
   const hasFindings = card.findings.length > 0;
 
@@ -92,7 +99,12 @@ export function ActionCard({ card }: { card: ActionCardData }) {
           <SectionRule label={`Clauses against the guideline · ${card.findings.length}`} />
           <ul className="space-y-3">
             {card.findings.map((finding, i) => (
-              <FindingRow key={finding.citation.section + i} finding={finding} index={i} />
+              <FindingRow
+                key={finding.citation.section + i}
+                finding={finding}
+                index={i}
+                benchmark={benchmarkForCitation(benchmark, finding.citation)}
+              />
             ))}
           </ul>
           <p className="text-[12.5px] leading-[1.55] text-sumi-faint">

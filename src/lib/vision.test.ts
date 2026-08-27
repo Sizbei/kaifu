@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DOC_TYPE_DESCRIPTORS, describeTaxonomyForPrompt } from "@/lib/doctypes";
 import {
   analyzeDocument,
+  VISION_FORMAT,
   VISION_SYSTEM_PROMPT,
-  VISION_TOOL,
   VisionConfigError,
   VisionResponseError,
   VisionSchemaError,
@@ -12,20 +12,27 @@ import {
 
 const { create } = vi.hoisted(() => ({ create: vi.fn() }));
 
-vi.mock("@anthropic-ai/sdk", () => ({
-  default: class MockAnthropic {
-    messages = { create };
+vi.mock("openai", () => ({
+  default: class MockOpenAI {
+    responses = { create };
     constructor(readonly options: { apiKey: string }) {}
   },
 }));
 
-/** A response shaped like the one the Messages API returns for a forced tool call. */
-function toolUseResponse(input: unknown) {
+/** A response shaped like the one the Responses API returns for a json_schema format. */
+function structuredResponse(output: unknown) {
   return {
-    id: "msg_test",
-    stop_reason: "tool_use",
-    content: [
-      { type: "tool_use", id: "toolu_test", name: VISION_TOOL.name, input },
+    id: "resp_test",
+    status: "completed",
+    incomplete_details: null,
+    output: [
+      {
+        type: "message",
+        id: "msg_test",
+        role: "assistant",
+        status: "completed",
+        content: [{ type: "output_text", text: JSON.stringify(output), annotations: [] }],
+      },
     ],
   };
 }
@@ -51,11 +58,13 @@ const IMAGE_B64 = "/9j/4AAQSkZJRgABAQ==";
 
 beforeEach(() => {
   create.mockReset();
-  process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+  process.env.OPENAI_API_KEY = "sk-test";
+  delete process.env.OPENAI_VISION_MODEL;
 });
 
 afterEach(() => {
-  delete process.env.ANTHROPIC_API_KEY;
+  delete process.env.OPENAI_API_KEY;
+  delete process.env.OPENAI_VISION_MODEL;
 });
 
 describe("describeTaxonomyForPrompt", () => {
@@ -117,41 +126,52 @@ describe("VISION_SYSTEM_PROMPT", () => {
   });
 });
 
+describe("VISION_FORMAT", () => {
+  it("is strict and closed so the model cannot assert a conflict", () => {
+    expect(VISION_FORMAT.strict).toBe(true);
+    expect(JSON.stringify(VISION_FORMAT.schema)).not.toContain("conflict");
+    expect(VISION_FORMAT.schema.additionalProperties).toBe(false);
+  });
+});
+
 describe("analyzeDocument", () => {
   it("throws an actionable config error when the API key is absent", async () => {
-    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.OPENAI_API_KEY;
 
     await expect(analyzeDocument(IMAGE_B64)).rejects.toBeInstanceOf(VisionConfigError);
-    await expect(analyzeDocument(IMAGE_B64)).rejects.toThrow(/ANTHROPIC_API_KEY/);
+    await expect(analyzeDocument(IMAGE_B64)).rejects.toThrow(/OPENAI_API_KEY/);
     expect(create).not.toHaveBeenCalled();
   });
 
-  it("sends the image as a base64 JPEG block and forces the tool call", async () => {
-    create.mockResolvedValue(toolUseResponse(WELL_FORMED));
+  it("sends the image as a high-detail data URL and forces the JSON schema format", async () => {
+    create.mockResolvedValue(structuredResponse(WELL_FORMED));
 
     await analyzeDocument(IMAGE_B64);
 
     const request = create.mock.calls[0][0];
-    expect(request.model).toBe("claude-opus-5");
-    expect(request.system).toBe(VISION_SYSTEM_PROMPT);
-    expect(request.tools).toEqual([VISION_TOOL]);
-    expect(request.tool_choice).toEqual({ type: "tool", name: VISION_TOOL.name });
-    expect(request.messages[0].content[0]).toEqual({
-      type: "image",
-      source: { type: "base64", media_type: "image/jpeg", data: IMAGE_B64 },
+    expect(request.model).toBe("gpt-5.5");
+    expect(request.instructions).toBe(VISION_SYSTEM_PROMPT);
+    expect(request.text).toEqual({ format: VISION_FORMAT });
+    expect(request.input[0].content[0]).toEqual({
+      type: "input_image",
+      image_url: `data:image/jpeg;base64,${IMAGE_B64}`,
+      detail: "high",
     });
   });
 
-  it("honours a caller-supplied model override", async () => {
-    create.mockResolvedValue(toolUseResponse(WELL_FORMED));
+  it("honours OPENAI_VISION_MODEL, and a caller override above it", async () => {
+    create.mockResolvedValue(structuredResponse(WELL_FORMED));
+    process.env.OPENAI_VISION_MODEL = "gpt-5.4-mini";
 
-    await analyzeDocument(IMAGE_B64, { model: "claude-sonnet-5" });
+    await analyzeDocument(IMAGE_B64);
+    expect(create.mock.calls[0][0].model).toBe("gpt-5.4-mini");
 
-    expect(create.mock.calls[0][0].model).toBe("claude-sonnet-5");
+    await analyzeDocument(IMAGE_B64, { model: "gpt-5.5-pro" });
+    expect(create.mock.calls[1][0].model).toBe("gpt-5.5-pro");
   });
 
   it("returns a validated result and defaults obligation conflicts to null", async () => {
-    create.mockResolvedValue(toolUseResponse(WELL_FORMED));
+    create.mockResolvedValue(structuredResponse(WELL_FORMED));
 
     const result = await analyzeDocument(IMAGE_B64);
 
@@ -163,7 +183,7 @@ describe("analyzeDocument", () => {
 
   it("rejects malformed model output with a typed schema error", async () => {
     create.mockResolvedValue(
-      toolUseResponse({
+      structuredResponse({
         ...WELL_FORMED,
         docType: "parking_ticket", // not in the taxonomy
         confidence: 4, // outside 0..1
@@ -178,15 +198,13 @@ describe("analyzeDocument", () => {
     const withoutRawText = Object.fromEntries(
       Object.entries(WELL_FORMED).filter(([key]) => key !== "rawText"),
     );
-    create.mockResolvedValue(toolUseResponse(withoutRawText));
+    create.mockResolvedValue(structuredResponse(withoutRawText));
 
     await expect(analyzeDocument(IMAGE_B64)).rejects.toBeInstanceOf(VisionSchemaError);
   });
 
   it("passes a low-confidence result through unfiltered — the caller decides", async () => {
-    create.mockResolvedValue(
-      toolUseResponse({ ...WELL_FORMED, confidence: 0.12 }),
-    );
+    create.mockResolvedValue(structuredResponse({ ...WELL_FORMED, confidence: 0.12 }));
 
     const result = await analyzeDocument(IMAGE_B64);
 
@@ -195,11 +213,51 @@ describe("analyzeDocument", () => {
     expect(result.rawText).toContain("参加費");
   });
 
-  it("throws when the model answers with prose instead of the tool", async () => {
+  it("throws when the model refuses instead of producing JSON", async () => {
     create.mockResolvedValue({
-      id: "msg_test",
-      stop_reason: "end_turn",
-      content: [{ type: "text", text: "This is a school excursion notice." }],
+      id: "resp_test",
+      status: "completed",
+      incomplete_details: null,
+      output: [
+        {
+          type: "message",
+          id: "msg_test",
+          role: "assistant",
+          status: "completed",
+          content: [{ type: "refusal", refusal: "I can't help with that." }],
+        },
+      ],
+    });
+
+    await expect(analyzeDocument(IMAGE_B64)).rejects.toBeInstanceOf(VisionResponseError);
+  });
+
+  it("throws when the response carries no message at all", async () => {
+    create.mockResolvedValue({
+      id: "resp_test",
+      status: "incomplete",
+      incomplete_details: { reason: "max_output_tokens" },
+      output: [{ type: "reasoning", id: "rs_test", summary: [] }],
+    });
+
+    await expect(analyzeDocument(IMAGE_B64)).rejects.toThrow(VisionResponseError);
+    await expect(analyzeDocument(IMAGE_B64)).rejects.toThrow(/max_output_tokens/);
+  });
+
+  it("throws a response error, not a schema error, when output_text is not JSON", async () => {
+    create.mockResolvedValue({
+      id: "resp_test",
+      status: "completed",
+      incomplete_details: null,
+      output: [
+        {
+          type: "message",
+          id: "msg_test",
+          role: "assistant",
+          status: "completed",
+          content: [{ type: "output_text", text: "This is a school excursion notice.", annotations: [] }],
+        },
+      ],
     });
 
     await expect(analyzeDocument(IMAGE_B64)).rejects.toBeInstanceOf(VisionResponseError);

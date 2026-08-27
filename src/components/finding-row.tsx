@@ -1,4 +1,5 @@
 import type { JudgeFinding } from "@/lib/types";
+import { benchmarkLine, type BenchmarkStats } from "@/lib/benchmark";
 import { LinkIcon } from "@/components/icons";
 
 /* "differs" is the strongest word this product uses. No advice, no verdict,
@@ -21,9 +22,11 @@ const STATUS: Record<JudgeFinding["status"], { label: string; className: string 
 interface FindingRowProps {
   finding: JudgeFinding;
   index: number;
+  /** Corpus counts for this finding's clause type. Null when the graph is off or has no row. */
+  benchmark?: BenchmarkStats | null;
 }
 
-export function FindingRow({ finding, index }: FindingRowProps) {
+export function FindingRow({ finding, index, benchmark = null }: FindingRowProps) {
   const status = STATUS[finding.status];
 
   return (
@@ -68,6 +71,12 @@ export function FindingRow({ finding, index }: FindingRowProps) {
           <LinkIcon className="size-[14px]" />
           Read the guideline
         </a>
+        {/* Counts only. The corpus is described, never the clause. */}
+        {benchmark ? (
+          <p className="mt-3 border-t border-rule pt-3 text-[12.5px] leading-[1.55] tabular-nums text-sumi-faint">
+            {benchmarkLine(benchmark)}
+          </p>
+        ) : null}
       </div>
     </li>
   );

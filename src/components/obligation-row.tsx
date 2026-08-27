@@ -21,6 +21,13 @@ function daysAway(iso: string): number | null {
   return Math.round((target - todayUtc) / 86_400_000);
 }
 
+/** The model's `iso` is schema-checked, but a bad date must never take the card down. */
+function formatDue(dueDate: { iso: string; raw: string }): string {
+  return Number.isNaN(Date.parse(`${dueDate.iso}T00:00:00+09:00`))
+    ? dueDate.raw
+    : DATE_FMT.format(new Date(`${dueDate.iso}T00:00:00+09:00`));
+}
+
 function urgency(days: number | null): { label: string; tone: string } | null {
   if (days === null) return null;
   if (days < 0) return { label: `${Math.abs(days)} days ago`, tone: "text-shu" };
@@ -47,14 +54,10 @@ function ConflictNotice({ conflict }: { conflict: NonNullable<Obligation["confli
         Two readings of this {noun} disagreed. We are not going to pick one for you.
       </p>
       <dl className="mt-3 grid grid-cols-[1fr_1fr] gap-x-3 gap-y-1.5 border-t border-shu-line pt-3">
-        <dt className="eyebrow">The scan read</dt>
-        <dt className="eyebrow">The page says</dt>
-        <dd className="text-[14px] tabular-nums text-sumi-soft line-through decoration-shu/50">
-          {conflict.modelSaw}
-        </dd>
-        <dd className="ja-tight text-[14px] font-medium text-sumi">
-          {conflict.documentSaid}
-        </dd>
+        <dt className="eyebrow">Model read</dt>
+        <dt className="eyebrow">Regex found on page</dt>
+        <dd className="ja-tight text-[14px] tabular-nums text-sumi">{conflict.modelSaw}</dd>
+        <dd className="ja-tight text-[14px] tabular-nums text-sumi">{conflict.documentSaid}</dd>
       </dl>
     </div>
   );
@@ -97,7 +100,7 @@ export function ObligationRow({ obligation, documentTitle, index }: ObligationRo
             {dueDate ? (
               <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
                 <dt className="eyebrow w-[54px] shrink-0">By</dt>
-                <dd className="text-[14.5px] tabular-nums text-sumi">{DATE_FMT.format(new Date(`${dueDate.iso}T00:00:00+09:00`))}</dd>
+                <dd className="text-[14.5px] tabular-nums text-sumi">{formatDue(dueDate)}</dd>
                 {away ? (
                   <dd className={`text-[13px] font-medium ${away.tone}`}>{away.label}</dd>
                 ) : null}

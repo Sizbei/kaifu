@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { JudgeFinding, VisionResult } from "@/lib/types";
 import { GROUND_TRUTH, type GroundTruthEntry } from "@/lib/groundtruth";
+import type { Hit, Retriever } from "@/lib/retrieval";
 import {
   assertNoAdviceLanguage,
   judgeClause,
@@ -58,34 +59,97 @@ const GOOD_FINDING: JudgeFinding = {
  * Retrieval
  * ------------------------------------------------------------------ */
 
-describe("retrieveEntries", () => {
-  it("routes a 原状回復 clause to the restoration entries", () => {
-    const ids = retrieveEntries(RESTORATION_CLAUSE).map((e) => e.id);
-    expect(ids).toContain("genjo-kaifuku-wear-examples");
-    expect(ids).toContain("genjo-kaifuku-definition");
+/** Hint routing only — what JUDGE does when no vector sidecar is configured. */
+const ids = async (text: string) => (await retrieveEntries(text, 3, null)).map((e) => e.id);
+
+describe("retrieveEntries (hint fallback)", () => {
+  it("routes a 原状回復 clause to the restoration entries", async () => {
+    const out = await ids(RESTORATION_CLAUSE);
+    expect(out).toContain("genjo-kaifuku-wear-examples");
+    expect(out).toContain("genjo-kaifuku-definition");
   });
 
-  it("does not route a 原状回復 clause to unrelated entries", () => {
-    const ids = retrieveEntries(RESTORATION_CLAUSE).map((e) => e.id);
-    expect(ids).not.toContain("shikikin-return");
-    expect(ids).not.toContain("koshinryo-not-in-model-lease");
+  it("does not route a 原状回復 clause to unrelated entries", async () => {
+    const out = await ids(RESTORATION_CLAUSE);
+    expect(out).not.toContain("shikikin-return");
+    expect(out).not.toContain("koshinryo-not-in-model-lease");
   });
 
-  it("routes a 更新料 clause to the renewal-fee entry", () => {
-    const ids = retrieveEntries(
+  it("routes a 更新料 clause to the renewal-fee entry", async () => {
+    const out = await ids(
       "第3条 契約を更新する場合、賃借人は更新料として賃料1か月分を支払うものとする。",
-    ).map((e) => e.id);
-    expect(ids[0]).toBe("koshinryo-not-in-model-lease");
+    );
+    expect(out[0]).toBe("koshinryo-not-in-model-lease");
   });
 
-  it("returns nothing for a clause that matches no hint", () => {
-    expect(retrieveEntries("本物件にはペットを飼育できません。")).toHaveLength(0);
+  it("returns nothing for a clause that matches no hint", async () => {
+    expect(await ids("本物件にはペットを飼育できません。")).toHaveLength(0);
   });
 
-  it("is deterministic", () => {
-    const a = retrieveEntries(RESTORATION_CLAUSE).map((e) => e.id);
-    const b = retrieveEntries(RESTORATION_CLAUSE).map((e) => e.id);
-    expect(a).toEqual(b);
+  it("is deterministic", async () => {
+    expect(await ids(RESTORATION_CLAUSE)).toEqual(await ids(RESTORATION_CLAUSE));
+  });
+});
+
+/** A retriever whose ground-truth search replays canned hits. */
+function stubRetriever(hits: readonly Hit[] | Error): Retriever {
+  const answer = async () => {
+    if (hits instanceof Error) throw hits;
+    return hits;
+  };
+  return { retrieve: answer, similarClauses: async () => [] };
+}
+
+/** A clause with no hint keyword at all — only embeddings can route it. */
+const PARAPHRASED_CLAUSE = "畳の日焼け及び壁クロスの変色の補修費は乙が負担する。";
+
+describe("retrieveEntries (vector path)", () => {
+  it("returns entries ranked by score, resolved through GROUND_TRUTH", async () => {
+    const retriever = stubRetriever([
+      { key: "genjo-kaifuku-definition", score: 0.55, payload: {} },
+      { key: "genjo-kaifuku-wear-examples", score: 0.81, payload: {} },
+    ]);
+    const out = await retrieveEntries(PARAPHRASED_CLAUSE, 3, retriever);
+    expect(out.map((e) => e.id)).toEqual([
+      "genjo-kaifuku-wear-examples",
+      "genjo-kaifuku-definition",
+    ]);
+    // The entry object itself comes from the corpus, citation included.
+    expect(out[0]).toBe(WEAR);
+  });
+
+  it("ignores a payload key that is not in GROUND_TRUTH", async () => {
+    const retriever = stubRetriever([
+      { key: "genjo-kaifuku-wear-examples", score: 0.8, payload: {} },
+      { key: "some-entry-planted-in-qdrant", score: 0.79, payload: { citation: "fake" } },
+    ]);
+    const out = await retrieveEntries(PARAPHRASED_CLAUSE, 3, retriever);
+    expect(out.map((e) => e.id)).toEqual(["genjo-kaifuku-wear-examples"]);
+  });
+
+  it("falls back to hints when the retriever throws", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const failing = stubRetriever(new Error("connect ECONNREFUSED 127.0.0.1:6333"));
+      const out = await retrieveEntries(RESTORATION_CLAUSE, 3, failing);
+      expect(out.map((e) => e.id)).toContain("genjo-kaifuku-wear-examples");
+      // Second failure: no second warning.
+      await retrieveEntries(RESTORATION_CLAUSE, 3, failing);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]?.[0]).toMatch(/hint routing/);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("falls back to hints when nothing clears the score threshold", async () => {
+    const out = await retrieveEntries(RESTORATION_CLAUSE, 3, stubRetriever([]));
+    expect(out.map((e) => e.id)).toContain("genjo-kaifuku-wear-examples");
+  });
+
+  it("returns nothing when neither path matches", async () => {
+    const out = await retrieveEntries("本物件にはペットを飼育できません。", 3, stubRetriever([]));
+    expect(out).toHaveLength(0);
   });
 });
 
@@ -105,6 +169,9 @@ describe("assertNoAdviceLanguage", () => {
     "You are entitled to the full deposit back.",
     "We recommend that you negotiate this clause.",
     "The clause is unenforceable and unfair.",
+    "The landlord cannot charge the tenant for this.",
+    "The tenant is not obligated to pay this.",
+    "The landlord is prohibited from deducting this.",
   ])("rejects English advice language: %s", (text) => {
     expect(() =>
       assertNoAdviceLanguage({ ...GOOD_FINDING, guidelineSays: text }),
@@ -116,10 +183,22 @@ describe("assertNoAdviceLanguage", () => {
     "支払いを拒否する権利があります。",
     "返還を請求できます。",
     "大家さんと交渉しましょう。",
+    "この費用は認められない。",
+    "借主が負担する必要はありません。",
   ])("rejects Japanese advice language: %s", (text) => {
     expect(() =>
       assertNoAdviceLanguage({ ...GOOD_FINDING, clausePlain: text }),
     ).toThrow(/advice language/i);
+  });
+
+  it.each([
+    "The tenant must restore the room at their own cost.",
+    "The tenant is required to pay a cleaning fee.",
+    "The guidance says the landlord must show an itemised breakdown.",
+  ])("keeps a neutral restatement of a clause: %s", (text) => {
+    expect(() =>
+      assertNoAdviceLanguage({ ...GOOD_FINDING, clausePlain: text }),
+    ).not.toThrow();
   });
 
   it("does not scan clauseJa, which is a verbatim quote of the document", () => {
