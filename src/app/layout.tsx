@@ -1,3 +1,4 @@
+import type React from "react";
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Sans, IBM_Plex_Mono, Newsreader, Noto_Sans_JP } from "next/font/google";
 import "./globals.css";
@@ -53,7 +54,7 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en"
