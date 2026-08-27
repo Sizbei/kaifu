@@ -1,0 +1,155 @@
+[
+  {
+    "id": "school-excursion",
+    "docType": "school_notice",
+    "titleJa": "秋の遠足のお知らせ",
+    "issuer": "墨田区立菊川小学校",
+    "note": null,
+    "scan": "/samples/school-excursion.png",
+    "photo": "/samples/school-excursion.photo.jpg"
+  },
+  {
+    "id": "school-materials-fee",
+    "docType": "school_notice",
+    "titleJa": "教材費集金のお願い",
+    "issuer": "墨田区立菊川小学校",
+    "note": null,
+    "scan": "/samples/school-materials-fee.png",
+    "photo": "/samples/school-materials-fee.photo.jpg"
+  },
+  {
+    "id": "school-open-class",
+    "docType": "school_notice",
+    "titleJa": "授業参観及び学級懇談会のお知らせ",
+    "issuer": "墨田区立菊川小学校",
+    "note": null,
+    "scan": "/samples/school-open-class.png",
+    "photo": "/samples/school-open-class.photo.jpg"
+  },
+  {
+    "id": "school-home-visit",
+    "docType": "school_notice",
+    "titleJa": "家庭訪問のお知らせ",
+    "issuer": "墨田区立菊川小学校",
+    "note": null,
+    "scan": "/samples/school-home-visit.png",
+    "photo": "/samples/school-home-visit.photo.jpg"
+  },
+  {
+    "id": "school-moving-classroom",
+    "docType": "school_notice",
+    "titleJa": "移動教室費用の積立てについて（お願い）",
+    "issuer": "墨田区立菊川小学校",
+    "note": null,
+    "scan": "/samples/school-moving-classroom.png",
+    "photo": "/samples/school-moving-classroom.photo.jpg"
+  },
+  {
+    "id": "ward-residence-tax",
+    "docType": "ward_tax_letter",
+    "titleJa": "令和8年度　特別区民税・都民税　納税通知書",
+    "issuer": "墨田区役所 税務課",
+    "note": null,
+    "scan": "/samples/ward-residence-tax.png",
+    "photo": "/samples/ward-residence-tax.photo.jpg"
+  },
+  {
+    "id": "ward-national-health-insurance",
+    "docType": "ward_tax_letter",
+    "titleJa": "令和8年度　国民健康保険料　納入通知書",
+    "issuer": "墨田区役所 国保年金課",
+    "note": null,
+    "scan": "/samples/ward-national-health-insurance.png",
+    "photo": "/samples/ward-national-health-insurance.photo.jpg"
+  },
+  {
+    "id": "ward-national-pension",
+    "docType": "ward_tax_letter",
+    "titleJa": "国民年金保険料　納付案内",
+    "issuer": "日本年金機構 東京広域事務センター",
+    "note": null,
+    "scan": "/samples/ward-national-pension.png",
+    "photo": "/samples/ward-national-pension.photo.jpg"
+  },
+  {
+    "id": "ward-child-allowance-status",
+    "docType": "ward_tax_letter",
+    "titleJa": "児童手当　現況届の提出について",
+    "issuer": "墨田区役所 子育て支援課",
+    "note": null,
+    "scan": "/samples/ward-child-allowance-status.png",
+    "photo": "/samples/ward-child-allowance-status.photo.jpg"
+  },
+  {
+    "id": "lease-restoration",
+    "docType": "lease_clause",
+    "titleJa": "第15条（原状回復）",
+    "issuer": "株式会社　両国不動産",
+    "note": "Charges natural wear-and-tear to the tenant, and bars objection to the landlord's estimate.",
+    "scan": "/samples/lease-restoration.png",
+    "photo": "/samples/lease-restoration.photo.jpg"
+  },
+  {
+    "id": "lease-deposit",
+    "docType": "lease_clause",
+    "titleJa": "第8条（敷金）",
+    "issuer": "株式会社　両国不動産",
+    "note": "One month of the deposit is written off unconditionally (敷引き).",
+    "scan": "/samples/lease-deposit.png",
+    "photo": "/samples/lease-deposit.photo.jpg"
+  },
+  {
+    "id": "lease-special-terms",
+    "docType": "lease_clause",
+    "titleJa": "第22条（特約事項）",
+    "issuer": "株式会社　両国不動産",
+    "note": "Chargeable 特約 mixed with ordinary house rules — a finding must not sweep up the whole clause.",
+    "scan": "/samples/lease-special-terms.png",
+    "photo": "/samples/lease-special-terms.photo.jpg"
+  },
+  {
+    "id": "lease-renewal",
+    "docType": "lease_clause",
+    "titleJa": "第3条（契約期間及び更新）",
+    "issuer": "株式会社　両国不動産",
+    "note": "TRUE NEGATIVE — ordinary renewal terms, nothing for JUDGE to flag.",
+    "scan": "/samples/lease-renewal.png",
+    "photo": "/samples/lease-renewal.photo.jpg"
+  },
+  {
+    "id": "lease-termination",
+    "docType": "lease_clause",
+    "titleJa": "第20条（解約の申入れ）",
+    "issuer": "株式会社　両国不動産",
+    "note": "TRUE NEGATIVE — tracks the 国交省 standard form; JUDGE should return 'matches' or nothing.",
+    "scan": "/samples/lease-termination.png",
+    "photo": "/samples/lease-termination.photo.jpg"
+  },
+  {
+    "id": "unknown-neighbourhood-circular",
+    "docType": "unknown",
+    "titleJa": "回覧",
+    "issuer": "菊川三丁目町会",
+    "note": "Ambiguous by design — a circular whose details were never filled in.",
+    "scan": "/samples/unknown-neighbourhood-circular.png",
+    "photo": "/samples/unknown-neighbourhood-circular.photo.jpg"
+  },
+  {
+    "id": "unknown-degraded-print",
+    "docType": "unknown",
+    "titleJa": "",
+    "issuer": null,
+    "note": "Looks like a school notice but the OCR is too holed to trust — must degrade to summary-only, not guess school_notice.",
+    "scan": "/samples/unknown-degraded-print.png",
+    "photo": "/samples/unknown-degraded-print.photo.jpg"
+  },
+  {
+    "id": "unknown-blank-receipt",
+    "docType": "unknown",
+    "titleJa": "領収証",
+    "issuer": null,
+    "note": "A blank receipt pad page — no counterparty, no figure, nothing to act on.",
+    "scan": "/samples/unknown-blank-receipt.png",
+    "photo": "/samples/unknown-blank-receipt.photo.jpg"
+  }
+]

@@ -175,7 +175,9 @@ describe("analyzeDocument", () => {
   });
 
   it("rejects a missing rawText rather than inventing an empty transcription", async () => {
-    const { rawText: _dropped, ...withoutRawText } = WELL_FORMED;
+    const withoutRawText = Object.fromEntries(
+      Object.entries(WELL_FORMED).filter(([key]) => key !== "rawText"),
+    );
     create.mockResolvedValue(toolUseResponse(withoutRawText));
 
     await expect(analyzeDocument(IMAGE_B64)).rejects.toBeInstanceOf(VisionSchemaError);

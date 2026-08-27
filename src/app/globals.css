@@ -1,26 +1,287 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* ==========================================================================
+   KAIFŪ — 開封
+   Aesthetic: Japanese stationery. A washi-paper ground, sumi ink text,
+   aizome indigo for actions, shu-iro vermilion reserved strictly for caution.
+   The user is holding a document that has been worrying them. Nothing here
+   should raise their heart rate except the one thing that should.
+   ========================================================================== */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+:root {
+  /* 60 — ground */
+  --paper: #f2eee6;
+  /* 30 — raised surfaces */
+  --paper-raised: #fbf9f5;
+  --paper-sunken: #e9e4d9;
+  /* ink */
+  --sumi: #17150f;
+  --sumi-soft: #5b554a;
+  --sumi-faint: #6a6355;
+  --rule: #ded7c8;
+  --rule-strong: #cbc2ae;
+  /* 10 — action accent (藍 / aizome indigo) */
+  --ai: #1d3f63;
+  --ai-hover: #16324f;
+  --ai-wash: #e6ecf2;
+  --ai-line: #b9c8d8;
+  /* semantic caution (朱色 / shu-iro). Never used decoratively. */
+  --shu: #a83521;
+  --shu-wash: #f8e9e4;
+  --shu-line: #e2b6a9;
+  /* semantic settled */
+  --matcha: #45624a;
+  --matcha-wash: #e8eee7;
+
+  --on-accent: #fbf9f5;
+
+  --radius-card: 14px;
+  --radius-inner: 8px;
+  --radius-pill: 999px;
+
+  /* Strong custom curves. Built-ins are too weak. */
+  --ease-ui: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-move: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --paper: #14130f;
+    --paper-raised: #1e1c17;
+    --paper-sunken: #0d0c0a;
+    --sumi: #ece6d9;
+    --sumi-soft: #a49d8e;
+    --sumi-faint: #948d7e;
+    --rule: #302d26;
+    --rule-strong: #454137;
+    --ai: #8fb4d4;
+    --ai-hover: #a8c6e0;
+    --ai-wash: #1a2733;
+    --ai-line: #2f4658;
+    --shu: #e08268;
+    --shu-wash: #2e1a14;
+    --shu-line: #573025;
+    --matcha: #9dbca1;
+    --matcha-wash: #1a231b;
+    --on-accent: #14130f;
   }
 }
 
+@theme inline {
+  --color-paper: var(--paper);
+  --color-raised: var(--paper-raised);
+  --color-sunken: var(--paper-sunken);
+  --color-sumi: var(--sumi);
+  --color-sumi-soft: var(--sumi-soft);
+  --color-sumi-faint: var(--sumi-faint);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-ai: var(--ai);
+  --color-ai-wash: var(--ai-wash);
+  --color-ai-line: var(--ai-line);
+  --color-shu: var(--shu);
+  --color-shu-wash: var(--shu-wash);
+  --color-shu-line: var(--shu-line);
+  --color-matcha: var(--matcha);
+  --color-matcha-wash: var(--matcha-wash);
+  --color-on-accent: var(--on-accent);
+
+  --font-sans: var(--font-plex-sans), var(--font-noto-jp), ui-sans-serif, system-ui,
+    sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --font-display: var(--font-newsreader), var(--font-noto-jp), ui-serif, Georgia, serif;
+  --font-ja: var(--font-noto-jp), "Hiragino Sans", "Hiragino Kaku Gothic ProN",
+    "Yu Gothic", sans-serif;
+}
+
+/* --------------------------------------------------------------------------
+   Base
+   -------------------------------------------------------------------------- */
+
+html {
+  -webkit-text-size-adjust: 100%;
+  background: var(--paper-sunken);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--sumi);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+/* Paper grain. Fixed so it reads as the surface, not as content. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.22'/%3E%3C/svg%3E");
+}
+
+@media (prefers-color-scheme: dark) {
+  body::before {
+    mix-blend-mode: screen;
+    opacity: 0.28;
+  }
+}
+
+::selection {
+  background: var(--ai-wash);
+  color: var(--sumi);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ai);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* --------------------------------------------------------------------------
+   Typographic helpers.
+   Japanese sits at a different optical density than Latin: it needs more
+   leading and slightly looser tracking to read as calm rather than dense.
+   -------------------------------------------------------------------------- */
+
+.ja {
+  font-family: var(--font-ja);
+  line-height: 1.9;
+  letter-spacing: 0.02em;
+  font-feature-settings: "palt" 1;
+}
+
+.ja-tight {
+  font-family: var(--font-ja);
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+}
+
+.numeric {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sumi-faint);
+}
+
+/* --------------------------------------------------------------------------
+   Motion. Every animation below has one job; none of them are decoration.
+   -------------------------------------------------------------------------- */
+
+@keyframes kf-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes kf-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes kf-sweep {
+  0% {
+    transform: translate3d(0, -20%, 0);
+    opacity: 0;
+  }
+  15%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(0, 620%, 0);
+    opacity: 0;
+  }
+}
+
+@keyframes kf-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Entrance: 260ms, ease-out. Used on screen changes and staggered lists. */
+.rise {
+  animation: kf-rise 260ms var(--ease-ui) both;
+}
+
+.fade {
+  animation: kf-fade 200ms var(--ease-ui) both;
+}
+
+.sweep {
+  animation: kf-sweep 2000ms var(--ease-move) infinite;
+}
+
+.breathe {
+  animation: kf-breathe 1600ms ease-in-out infinite;
+}
+
+/* Press feedback, under 100ms, on every interactive surface. */
+.pressable {
+  transition:
+    transform 90ms var(--ease-ui),
+    background-color 140ms var(--ease-ui),
+    border-color 140ms var(--ease-ui),
+    box-shadow 160ms var(--ease-ui);
+}
+.pressable:active {
+  transform: scale(0.975);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pressable:hover {
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 6px 18px -8px rgb(0 0 0 / 0.22);
+  }
+}
+
+/* Depth: contact shadow + soft elevation, tinted toward the ink not to black. */
+.card-depth {
+  box-shadow:
+    0 1px 0 0 var(--rule),
+    0 1px 2px rgb(23 21 15 / 0.04),
+    0 12px 32px -18px rgb(23 21 15 / 0.28);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Fewer and gentler, not zero: colour and opacity still explain state. */
+  .rise,
+  .fade {
+    animation: kf-fade 160ms linear both;
+  }
+  .sweep {
+    animation: kf-breathe 2000ms ease-in-out infinite;
+  }
+  .pressable:active {
+    transform: none;
+  }
+  * {
+    scroll-behavior: auto !important;
+  }
 }

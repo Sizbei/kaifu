@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "eval:registers": "node scripts/eval-registers.mjs"
+    "eval:registers": "node scripts/eval-registers.mjs",
+    "samples": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/render-samples.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.121.0",
@@ -26,6 +27,7 @@
     "@vitest/coverage-v8": "^4.1.11",
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
+    "playwright": "^1.62.1",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.11"
