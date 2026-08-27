@@ -284,11 +284,13 @@ describe("streamRegisters", () => {
   it("fires all four registers concurrently, not one after another", async () => {
     let inFlight = 0;
     let peak = 0;
+    // Launches are staggered by 150 ms to dodge the gateway's burst limiter,
+    // so the stub must hold longer than the whole stagger for all four to overlap.
     stubFetch(async (_u, init) => {
       registerOf(init);
       inFlight += 1;
       peak = Math.max(peak, inFlight);
-      await new Promise((r) => setTimeout(r, 5));
+      await new Promise((r) => setTimeout(r, 800));
       inFlight -= 1;
       return streamRes([utf8(body("本文。", "g"))]);
     });

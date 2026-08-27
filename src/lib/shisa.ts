@@ -8,6 +8,7 @@
 
 import { z } from "zod";
 
+import { LAUNCH_STAGGER_MS, delay, withRateLimitRetry } from "@/lib/backoff";
 import {
   actionCardSystemPrompt,
   actionCardUserPrompt,
@@ -50,7 +51,6 @@ function required(env: Env, key: string, hint: string): string {
   return value;
 }
 
-
 export function createShisaClient(env: Env = process.env): ShisaClient {
   const baseUrl = required(
     env,
@@ -88,7 +88,7 @@ async function postChat(
   body: ChatBody,
   signal?: AbortSignal,
 ): Promise<Response> {
-  const res = await fetch(`${client.baseUrl}/chat/completions`, {
+  const res = await withRateLimitRetry(() => fetch(`${client.baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -97,7 +97,7 @@ async function postChat(
     },
     body: JSON.stringify({ model: client.model, ...body }),
     signal,
-  });
+  }), signal);
 
   if (!res.ok) {
     // Upstream diagnostics, not user-facing: the route maps this to a
@@ -246,7 +246,7 @@ async function streamOne(
     {
       messages: [
         { role: "system", content: registerSystemPrompt(register) },
-        { role: "user", content: registerUserPrompt(req) },
+        { role: "user", content: registerUserPrompt(req, register) },
       ],
       stream: true,
       temperature: REGISTER_TEMPERATURE,
@@ -323,8 +323,9 @@ export async function streamRegisters(
   const client = createShisaClient();
 
   await Promise.all(
-    REGISTERS.map(async (spec) => {
+    REGISTERS.map(async (spec, i) => {
       try {
+        if (i > 0) await delay(i * LAUNCH_STAGGER_MS, signal); // dodge the burst limiter
         await streamOne(client, spec.id, req, onEvent, signal);
       } catch (err) {
         // A caller-initiated abort is not a register failure; the consumer
