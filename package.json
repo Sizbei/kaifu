@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "eval:registers": "node scripts/eval-registers.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.121.0",
